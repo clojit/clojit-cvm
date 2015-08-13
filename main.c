@@ -1,6 +1,10 @@
-#include "mps.h"
-#include "mpsavm.h"
-#include "mpscamc.h"
+#include <stdio.h>
+
+#include <mps.h>
+#include <mpsavm.h>
+#include <mpscamc.h>
+
+#include "encoding.h"
 
 int main(int argc, char *argv[])
 {

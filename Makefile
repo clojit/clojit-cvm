@@ -13,11 +13,9 @@ all: main
 
 .PHONY: clean
 
-$(MPS_KIT).tar.gz:
-	curl "$(MPS_URL)" -o $@
-
-$(MPS_KIT): $(MPS_KIT).tar.gz
-	tar xmf $<
+$(MPS_KIT):
+	curl "$(MPS_URL)" -o $(MPS_KIT).tar.gz
+	tar xmf $(MPS_KIT).tar.gz
 
 mps.o: $(MPS_KIT)
 	$(CC) $(CFLAGS) -DCONFIG_VAR_COOL -c "$(MPS_KIT)/code/mps.c"
@@ -26,3 +24,4 @@ main: mps.o
 
 clean:
 	rm -rf main mps.o
+	rm -r $(MPS_KIT).tar.gz
