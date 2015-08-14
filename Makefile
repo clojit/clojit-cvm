@@ -20,7 +20,9 @@ $(MPS_KIT):
 mps.o: $(MPS_KIT)
 	$(CC) $(CFLAGS) -DCONFIG_VAR_COOL -c "$(MPS_KIT)/code/mps.c"
 
-main: mps.o
+hashmap.o: c_hashmap/hashmap.c
+
+main: mps.o c_hashmap/hashmap.o
 
 clean:
 	rm -rf main mps.o

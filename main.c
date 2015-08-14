@@ -7,8 +7,10 @@
 #include "mps.h"
 #include "mpsavm.h"
 #include "mpscamc.h"
+#include "c_hashmap/hashmap.h"
 
 #include <stdbool.h>
+
 
 #define WORD_SIZE   sizeof(uint64_t)
 #define ALIGNMENT   WORD_SIZE
@@ -38,7 +40,21 @@ static const char *OBJ_MPS_TYPE_NAMES[] = {
 
 
 
-////////////////////////////////////////////////////////////////
+////////////////////////////Hashmap////////////////////////////////////
+
+#define KEY_MAX_LENGTH (256)
+#define KEY_PREFIX ("somekey")
+#define KEY_COUNT (1024*1024)
+
+typedef struct data_struct_s
+{
+    char key_string[KEY_MAX_LENGTH];
+    uint64_t number;
+} data_struct_t;
+
+
+///////////////////////////////////////////////////////////////////
+
 
 #define ADDVV 1
 #define SUBVV 3
@@ -64,6 +80,9 @@ static const char *OBJ_MPS_TYPE_NAMES[] = {
 #define GETFIELD 101
 #define SETFIELD 102
 
+#define NSSET 120
+#define NSGET 121
+
 #define EXIT 150
 
 
@@ -73,6 +92,8 @@ static mps_ap_t obj_ap;         /* allocation point used to allocate objects */
 
 static uint64_t slots[100] = {0};
 static int pc = 0;
+
+static map_t symbol_table;
 
 typedef uint32_t instr;
 
@@ -145,15 +166,8 @@ double get_double(uint64_t slot) {
 }
 
 uint64_t to_double(double num) {
-
-    //uint64_t result = ((uint64_t) ((void *) num));
     uint64_t result = *((uint64_t*)(void*) &num);
-
-    //printf("double: %016"PRIx64"\n", result);
     uint64_t result2 = invert_non_negative(result);
-
-    //printf("result : %016"PRIx64"\n", result);
-
     return result2;
 }
 
@@ -421,10 +435,11 @@ void print_slots(uint64_t* slots ,int size) {
 
 static int start() {
 
-            //OP        A    B            C
-            //SETFIELD  ref  offset(lit)  var
-            //GETFIELD  dst  ref   offset(lit)
-
+    int map_error;
+    char key_string[KEY_MAX_LENGTH];
+    data_struct_t* value;
+    
+    symbol_table = hashmap_new();
 
     struct OpAD set1 =   { .op = SETI, .a = 0, .d = 1 };
     struct OpAD set2 =   { .op = SETF, .a = 1, .d = 5 };
@@ -436,6 +451,8 @@ static int start() {
     struct OpABC get = { .op = GETFIELD, .a = 5, .b = 4, .c = 0 };
     struct OpAD jump1  = { .op = JUMPF, .a = 0 , .d =  -3 };
     struct OpAD exit  = { .op = EXIT, .a = 0 , .d = 0 };
+    struct OpAD setg = { .op = NSSET, .a = 2, .d = 10 };
+    struct OpAD getg = { .op = NSGET, .a = 6, .d = 10 };
 
     instr set1instr =  *(instr*)(void*) &set1;
     instr set2instr =  *(instr*)(void*) &set2;
@@ -447,6 +464,8 @@ static int start() {
     instr init_instr = *(instr*)(void*) &init;
     instr set_instr =  *(instr*)(void*) &set;
     instr get_instr =  *(instr*)(void*) &get;
+    instr setg_instr =  *(instr*)(void*) &setg;
+    instr getg_instr =  *(instr*)(void*) &getg;
 
     instr bytecodes[100] = { 
                            set1instr,
@@ -457,8 +476,10 @@ static int start() {
                            set1instr, 
                            jump1instr,
                            init_instr,
+                           setg_instr,
                            set_instr,
                            get_instr,
+                           getg_instr,
                            exit_instr };
   
     mps_res_t res;
@@ -531,6 +552,7 @@ static int start() {
                     slots[target_slot] = to_double(get_double(bslot) * get_int(cslot) );
                 if ( is_int(bslot) && is_double(cslot) )
                     slots[target_slot] = to_double(get_double(cslot) * get_int(bslot) );
+
                 printf("MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
                 break;
             }
@@ -560,18 +582,10 @@ static int start() {
             }            
             case SETI: {
                 int target_slot = ad.a;
-                //printf("i  : %016"PRIx64"\n", (uint64_t) ad.d );
 
                 uint64_t res =  to_int( (uint64_t) ad.d ) ;
-                //printf("res: %016"PRIx64"\n", res );
                 slots[target_slot] = to_int( (uint64_t) ad.d  );
                 printf("SETI: %d %d\n", ad.a, ad.d);
-
-                /*if(is_int( slots[target_slot] )) {
-                    printf("slot[target_slot] is int\n");
-                } else {
-                   printf("slot[target_slot] is not int\n");
-                }*/
 
                 break;
             }
@@ -609,16 +623,6 @@ static int start() {
             //    OP        A    B            C
             //    SETFIELD  ref  offset(lit)  var
             case SETFIELD: {
-
-// struct OpABC set = { .op = SETFIELD, .a = 4, .b = 0, .c = 3 };
-
-               
-                
-                
-/*
-                 *( (uint64_t *) slots[ref_index] + offset + 1) = slots[var_index]; 
-                */
-
                  printf("SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c); 
 
                  int offset = abc.b;
@@ -671,6 +675,33 @@ static int start() {
                     pc = pc + offset;
                 }
                 printf("JUMPT: %d %d\n", ad.a,  (int16_t) ad.d);
+                break;
+            }
+            //NSSETS   var     const-str  ->  ns[const-str] = var
+            case NSSET: {
+                printf("NSSET: %d %d\n", ad.a, ad.d);
+                value = malloc(sizeof(data_struct_t));
+                snprintf(value->key_string, KEY_MAX_LENGTH, "%s%d", KEY_PREFIX, ad.d);
+                //printf("key: %s  val (slots[%d]:", value->key_string, ad.a );
+                //print_slot(slots[ad.a]);
+                //printf(")\n");                
+                value->number = slots[ad.a];
+
+                map_error = hashmap_put(symbol_table, value->key_string, value);
+                assert(map_error==MAP_OK);
+
+                break;
+            }
+            //NSGETS   dst     const-str  ->  dst = ns[const-str]
+            case NSGET: {
+                printf("NSGET: %d %d\n", ad.a, ad.d);
+                snprintf(key_string, KEY_MAX_LENGTH, "%s%d", KEY_PREFIX, ad.d);
+                //printf("(get: %s val: ", key_string);
+                map_error = hashmap_get(symbol_table, key_string, (void**)(&value));
+                assert(map_error==MAP_OK);
+                slots[ad.a] = value->number;
+                //print_slot(slots[ad.a]);
+                //printf(")\n");
                 break;
             }
             case LOOP: { break; }
