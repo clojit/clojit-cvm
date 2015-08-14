@@ -562,6 +562,22 @@ static int start() {
                 printf("MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
                 break;
             }
+            case DIVVV: {
+                printf("DIVVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                
+                if ( is_int(bslot) && is_int(cslot) )
+                    slots[target_slot] = to_int(get_int(bslot) / get_int(cslot));
+
+                if ( is_double(bslot) && is_double(cslot) )
+                    slots[target_slot] = to_double(get_double(bslot) / get_double(cslot));
+
+                if ( is_double(bslot) && is_int(cslot) )
+                    slots[target_slot] = to_double(get_double(bslot) / get_int(cslot) );
+
+                if ( is_int(bslot) && is_double(cslot) )
+                    slots[target_slot] = to_double(get_double(cslot) / get_int(bslot) );
+
+            }
             //EQUALITY
             case ISEQ: {
                 int target_slot = abc.a;
