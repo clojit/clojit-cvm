@@ -62,6 +62,7 @@ typedef struct data_struct_s
 #define SETF 60
 #define MULVV 4
 #define MODVV 5
+#define DIVVV 10
 
 #define ISEQ 7
 #define MOV 8
@@ -453,6 +454,8 @@ static int start() {
     struct OpAD exit  = { .op = EXIT, .a = 0 , .d = 0 };
     struct OpAD setg = { .op = NSSET, .a = 2, .d = 10 };
     struct OpAD getg = { .op = NSGET, .a = 6, .d = 10 };
+    struct OpABC div1 = { .op = DIVVV, .a = 7, .b = 1, .c = 1 };
+    struct OpABC eq2 = { .op = ISEQ, .a = 8, .b = 2, .c = 2 };
 
     instr set1instr =  *(instr*)(void*) &set1;
     instr set2instr =  *(instr*)(void*) &set2;
@@ -466,6 +469,8 @@ static int start() {
     instr get_instr =  *(instr*)(void*) &get;
     instr setg_instr =  *(instr*)(void*) &setg;
     instr getg_instr =  *(instr*)(void*) &getg;
+    instr div1_instr =  *(instr*)(void*) &div1;
+    instr eq2_instr =  *(instr*)(void*) &eq2;
 
     instr bytecodes[100] = { 
                            set1instr,
@@ -480,6 +485,8 @@ static int start() {
                            set_instr,
                            get_instr,
                            getg_instr,
+                           div1_instr,
+                           eq2_instr,
                            exit_instr };
   
     mps_res_t res;
@@ -557,14 +564,29 @@ static int start() {
                 break;
             }
             case MODVV: {
-                int target_slot = abc.a;
-                slots[target_slot] =  slots[abc.b] % slots[abc.c];
                 printf("MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                int target_slot = abc.a;
+                uint64_t bslot = slots[abc.b];
+                uint64_t cslot = slots[abc.c];
+
+                if ( is_int(bslot) && is_int(cslot) ) {
+                    slots[target_slot] = to_int(get_int(bslot) % get_int(cslot));                
+                } else {
+                    printf("Type Error. Called Modulo with Float");
+                    return 0;
+                }
+
+                slots[target_slot] =  slots[abc.b] % slots[abc.c];
+
                 break;
             }
             case DIVVV: {
                 printf("DIVVV: %d %d %d\n", abc.a, abc.b, abc.c);
                 
+                int target_slot = abc.a;
+                uint64_t bslot = slots[abc.b];
+                uint64_t cslot = slots[abc.c];
+
                 if ( is_int(bslot) && is_int(cslot) )
                     slots[target_slot] = to_int(get_int(bslot) / get_int(cslot));
 
@@ -576,18 +598,31 @@ static int start() {
 
                 if ( is_int(bslot) && is_double(cslot) )
                     slots[target_slot] = to_double(get_double(cslot) / get_int(bslot) );
-
+                break;
             }
             //EQUALITY
             case ISEQ: {
-                int target_slot = abc.a;
-                if( slots[abc.b] == slots[abc.c]) {
-                    slots[target_slot] = 1;
-                } else {
-                    slots[target_slot] = 0;
-                }
                 printf("ISEQ: %d %d %d\n", abc.a, abc.b, abc.c);
-                break;
+                int target_slot = abc.a;
+                uint64_t bslot = slots[abc.b];
+                uint64_t cslot = slots[abc.c];
+
+
+                //print_slot(bslot);
+                //printf(" ");
+                //print_slot(bslot);
+                //printf("\n");
+                if ( is_int(bslot) && is_int(cslot) ) {
+                    slots[target_slot] = (get_int(bslot) == get_int(cslot));
+                    break;
+                }
+                if ( is_double(bslot) && is_double(cslot) ) {
+                    slots[target_slot] = to_int(get_double(bslot) == get_double(cslot));
+                    break;
+                }
+                printf("Type Error ISEQ can only called with all Ints or all Double");
+                return 1;      
+
             }
             //SET and MOVE
             case MOV: {
