@@ -9,6 +9,11 @@ CFLAGS+=-pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual \
 
 LDFLAGS+=-lpthread
 
+OBJS=  main.o
+OBJS+= loader.o
+OBJS+= mps.o
+OBJS+= hashmap.o
+
 all: main
 
 .PHONY: clean
@@ -17,13 +22,16 @@ $(MPS_KIT):
 	curl "$(MPS_URL)" -o $(MPS_KIT).tar.gz
 	tar xmf $(MPS_KIT).tar.gz
 
+main.o: $(MPS_KIT)
+
 mps.o: $(MPS_KIT)
 	$(CC) $(CFLAGS) -DCONFIG_VAR_COOL -c "$(MPS_KIT)/code/mps.c"
 
-hashmap.o: c_hashmap/hashmap.c
+hashmap.o:
+	$(CC) $(CFLAGS) -c "c_hashmap/hashmap.c"
 
-main: mps.o c_hashmap/hashmap.o
+main: $(OBJS)
 
 clean:
-	rm -rf main mps.o
-	rm -r $(MPS_KIT).tar.gz
+	rm -rf main $(OBJS)
+	rm -f $(MPS_KIT).tar.gz
