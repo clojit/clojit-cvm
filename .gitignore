@@ -37,3 +37,6 @@ main
 
 # Debug files
 *.dSYM/
+
+
+.idea
