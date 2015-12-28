@@ -44,11 +44,13 @@ struct types {
 	uint32_t types_size;
 };
 
-int64_t swap_int64( int64_t val )
+int64_t swap_int64(int64_t in)
 {
+    uint64_t val = (uint64_t) in;
     val = ((val << 8) & 0xFF00FF00FF00FF00ULL ) | ((val >> 8) & 0x00FF00FF00FF00FFULL );
     val = ((val << 16) & 0xFFFF0000FFFF0000ULL ) | ((val >> 16) & 0x0000FFFF0000FFFFULL );
-    return (val << 32) | ((val >> 32) & 0xFFFFFFFFULL);
+    val = (val << 32) | ((val >> 32) & 0xFFFFFFFFULL);
+    return (int64_t) val;
 }
 
 // *buf must outlive *sections
