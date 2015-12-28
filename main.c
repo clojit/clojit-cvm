@@ -8,9 +8,9 @@
 #include "mpsavm.h"
 #include "mpscamc.h"
 #include "c_hashmap/hashmap.h"
+#include "loader.h"
 
 #include <stdbool.h>
-
 
 #define WORD_SIZE   sizeof(uint64_t)
 #define ALIGNMENT   WORD_SIZE
@@ -436,6 +436,12 @@ void print_slots(uint64_t* slots ,int size) {
 
 static int start() {
 
+    struct sections sec = {0};
+    int result = loadfile("defA1.cvmb", &sec);
+
+    return result;
+
+
     int map_error;
     char key_string[KEY_MAX_LENGTH];
     data_struct_t* value;
@@ -778,6 +784,7 @@ static int start() {
 }
 
 int main() {
+
     size_t arenasize = 32ul * 1024 * 1024;
     mps_res_t res;
     mps_chain_t obj_chain;
@@ -818,6 +825,9 @@ int main() {
     mps_chain_destroy(obj_chain);
     mps_fmt_destroy(obj_fmt);
 //    mps_arena_destroy(arena);
+
+
+
 }
 
 
