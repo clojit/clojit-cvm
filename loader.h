@@ -10,13 +10,13 @@ struct sections {
 	int64_t *cint;
 	size_t cint_cnt;
 
-	float *cfloat;
+	double *cfloat;
 	size_t cfloat_cnt;
 	
-	uint32_t *cstr;
+	char *cstr;
 	size_t cstr_cnt;
 
-	uint32_t *ckey;
+	char *ckey;
 	size_t ckey_cnt;
 
 	// TODO vtable

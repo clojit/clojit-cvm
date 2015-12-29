@@ -434,10 +434,10 @@ void print_slots(uint64_t* slots ,int size) {
     }
 }
 
-static int start() {
+static int start(char *file) {
 
     struct sections sec = {0};
-    int result = loadfile("defA1.cvmb", &sec);
+    int result = loadfile(file, &sec);
 
     return result;
 
@@ -783,7 +783,7 @@ static int start() {
     return 0;
 }
 
-int main() {
+int main(int argc, char **argv) {
 
     size_t arenasize = 32ul * 1024 * 1024;
     mps_res_t res;
@@ -815,7 +815,11 @@ int main() {
     res = mps_root_create_reg(&reg_root,arena,mps_rank_ambig(),0,thread,mps_stack_scan_ambig,marker,0);
     if (res != MPS_RES_OK) printf("Couldn't create root");
 
-    exit_code = start();
+    if(argc > 1) {
+        exit_code = start(argv[1]);
+    }
+
+
  
     mps_arena_park(arena);
     mps_root_destroy(reg_root);
