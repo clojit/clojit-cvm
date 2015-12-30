@@ -41,23 +41,43 @@ struct vtable {
 	uint32_t vtable_offset;
 };
 
-struct types {
-	uint16_t types_id;
-	uint32_t types_size;
-};
-
 void add_vtable_record(struct sections* section, struct vtable_record *v) {
     HASH_ADD_INT(section->vtable, look_up_pair, v );
 }
 
-struct vtable_record *find_table(struct sections* section, uint64_t lup) {
+struct vtable_record *get_vtable_record(struct sections* section, uint64_t lup) {
     struct vtable_record *s;
-
     HASH_FIND_INT(section->vtable,&lup, s );
-
     return s;
 }
 
+void add_type_record(struct sections* section, struct type_record *v) {
+    HASH_ADD_INT(section->types, type_id, v );
+}
+
+struct type_record *get_type_record(struct sections* section, uint32_t id) {
+    struct type_record *s;
+    HASH_FIND_INT(section->types,&id, s );
+    return s;
+}
+
+double swap(double d)
+{
+   double a;
+   unsigned char *dst = (unsigned char *)&a;
+   unsigned char *src = (unsigned char *)&d;
+
+   dst[0] = src[7];
+   dst[1] = src[6];
+   dst[2] = src[5];
+   dst[3] = src[4];
+   dst[4] = src[3];
+   dst[5] = src[2];
+   dst[6] = src[1];
+   dst[7] = src[0];
+
+   return a;
+}
 
 int64_t swap_int64(int64_t in) {
     uint64_t val = (uint64_t) in;
@@ -76,19 +96,12 @@ int parse(uint8_t *buf, struct sections *ret)
 
 	uint32_t hdr_size = ntohl(*(uint32_t*)(void*)buf);
 
-    printf("hdr_size: %d\n", hdr_size);
+    //printf("hdr_size: %d\n", hdr_size);
 
 	struct parse_hdr *hdr = (void*)(buf + HEADER_OFFSET);
 
     offset =  (hdr_size * sizeof(parse_hdr_instance)) + HEADER_OFFSET ;
-
-    for (int i = 0; i < hdr_size; i++) {
-        printf("sec len:%d -  sec id:%d:\n",
-                ntohl(hdr[i].sec_len),
-                ntohl(hdr[i].sec_id));
-    }
-
-    printf("offset: %zd\n", offset);
+    //printf("offset: %zd\n", offset);
 
 	for (int i = 0; i < hdr_size; i++) {
 	    printf("-----------------------\n");
@@ -96,49 +109,57 @@ int parse(uint8_t *buf, struct sections *ret)
         size_t len = ntohl(hdr[i].sec_len);
         uint32_t sec_id = ntohl(hdr[i].sec_id);
 
-        printf("sec_len: %zd\n",len);
-        printf("sec_id:  %d\n", sec_id);
+        //printf("sec_len: %zd\n",len);
+        //printf("sec_id:  %d\n", sec_id);
 
         uint32_t* section_cnt_ptr = (uint32_t*)(void *)(buf + offset);
         uint32_t cnt = ntohl(*section_cnt_ptr);
 
-        printf("element count at offset, cnt:  %d\n", cnt);
+        //printf("element count at offset, cnt:  %d\n", cnt);
 
         uint32_t* section_data_ptr = (uint32_t*)(buf + offset + sizeof(uint32_t));
 
 	    switch(sec_id) {
 		  case SECTION_INSTRUCTIONS:
-		    printf("SECTION_INSTRUCTIONS\n");
+		    printf("SECTION_INSTRUCTIONS  %d\n", cnt);
 		    ret->instr_cnt = cnt;
             ret->instr = (instr*)(void *) section_data_ptr;
 
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
             offset = offset + len + sizeof(uint32_t);
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
 
 			break;
 		  case SECTION_CINT:
-		    printf("SECTION_CINT\n");
+		    printf("SECTION_CINT  %d\n", cnt);
 		    ret->cint_cnt = cnt;
             ret->cint = (int64_t *)(void *)section_data_ptr;
 			//printf("ret->cint: %ld\n", swap_int64( *ret->cint));
 
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
             offset = offset + len + sizeof(uint32_t);
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
+
+            for(int j = 0;j < cnt; j++) {
+                printf("int[%d]: %" PRId64 "\n",j, swap_int64(ret->cint[j]) );
+            }
 
 			break;
 		  case SECTION_CFLOAT:
-		    printf("SECTION_CFLOAT\n");
+		    printf("SECTION_CFLOAT  %d\n", cnt);
 		    ret->cfloat_cnt = cnt;
 		    ret->cfloat = (double *)(void *)section_data_ptr;
 
-            printf("offset: %zd\n", offset);
+            for(int j = 0;j < cnt; j++) {
+                printf("float[%d]: %f\n",j, swap(ret->cfloat[j]));
+            }
+
+            //printf("offset: %zd\n", offset);
             offset = offset + len + sizeof(uint32_t);
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
 			break;
 		  case SECTION_CSTR:
-		    printf("SECTION_CSTR\n");
+		    printf("SECTION_CSTR  %d\n", cnt);
             uint32_t* start_of_index = (uint32_t*)(void *)section_data_ptr;
             uint32_t* start_of_character_data_32 = start_of_index + cnt + 1; // 1 for HEADER_SIZE of character section
             char*  start_of_character_data_8 = (char*)(void *)start_of_character_data_32;
@@ -152,18 +173,20 @@ int parse(uint8_t *buf, struct sections *ret)
                         charskip = ntohl(*(start_of_index + j-1));
 
                    strptr[j] = start_of_character_data_8 + charskip;
+
+                   printf("str[%d]: %s\n",j, strptr[j]);
             }
             ret->cstr_cnt = cnt;
             ret->cstr = strptr;
 
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
             uint32_t bytesOfStr = ntohl(*(start_of_index + (cnt-1)));
             offset = offset + bytesOfStr  + sizeof(uint32_t) + sizeof(uint32_t) + (cnt * sizeof(uint32_t));
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
 
 		    break;
 		  case SECTION_CKEY:
-		    printf("SECTION_CKEYR\n");
+		    printf("SECTION_CKEYR  %d\n", cnt);
             uint32_t* keys_start_of_index = (uint32_t*)(void *)section_data_ptr;
             uint32_t* keys_start_of_character_data_32 = keys_start_of_index + cnt + 1; // 1 for HEADER_SIZE of character section
             uint8_t*  keys_start_of_character_data_8 = (uint8_t*)(void *)keys_start_of_character_data_32;
@@ -177,12 +200,13 @@ int parse(uint8_t *buf, struct sections *ret)
                         charskip = ntohl(*(keys_start_of_index + j-1));
 
                    keyptr[j] = keys_start_of_character_data_8 + charskip;
+
+                   printf("key[%d]: %s\n",j, keyptr[j]);
             }
             ret->ckey_cnt = cnt;
             ret->ckey     = keyptr;
 
-            printf("offset: %zd\n", offset);
-
+            //printf("offset: %zd\n", offset);
             uint32_t bytesOfKeys = 0;
 
             if(cnt != 0)
@@ -191,44 +215,55 @@ int parse(uint8_t *buf, struct sections *ret)
             offset = offset +
                      bytesOfKeys  +
                      sizeof(uint32_t) + sizeof(uint32_t) + (cnt * sizeof(uint32_t));
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
             break;
 		  case SECTION_VTABLES:
-            printf("SECTION_VTABLES\n");
-
+            printf("SECTION_VTABLES  %d\n", cnt);
+            ret->vtable = NULL;
+            ret->vtable_cnt = cnt;
             for(int j = 0;j < cnt; j++) {
 
               uint32_t jump_offset = ntohl(*section_data_ptr);
               uint32_t protocol_nr = ntohl(*(section_data_ptr + 1));
               uint32_t type_nr = ntohl(*(section_data_ptr + 2));
 
-              printf("jump_offset: %d\n", jump_offset);
-              printf("protocol_nr: %d\n", protocol_nr);
-              printf("typenr: %d\n", type_nr);
-
+              printf("protocol_nr: %d type_nr: %d  jump_offset: %d\n",protocol_nr, type_nr,jump_offset);
               uint64_t look_up_pair = (uint64_t) protocol_nr << 32 |  (uint64_t) type_nr;
 
               struct vtable_record *record = malloc(sizeof(struct vtable_record));
               record->look_up_pair = look_up_pair;
               record->jump_offset = jump_offset;
 
-              ret->vtable = NULL;
-
               add_vtable_record(ret,record);
 
               section_data_ptr = section_data_ptr + 3;
             }
 
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
             offset = offset + len + sizeof(uint32_t);
-
-            printf("offset: %zd\n", offset);
+            //printf("offset: %zd\n", offset);
 
 			break;
+		  case SECTION_TYPES:
+            printf("SECTION_TYPES  %d\n", cnt);
+
+            ret->types = NULL;
+            ret->types_cnt = cnt;
+            for(int j = 0;j < cnt; j++) {
+              uint32_t t_id = ntohl(*section_data_ptr);
+              uint32_t type_size = ntohl(*(section_data_ptr + 1));
+              printf("type_id: %d type_size: %d\n", t_id, type_size);
+              struct type_record *record = malloc(sizeof(struct type_record));
+              record->type_id = t_id;
+              record->type_size = type_size;
+              add_type_record(ret,record);
+              section_data_ptr = section_data_ptr + 2;
+            }
+            break;
 		  default:
 		    printf("default\n");
 			return EINVAL;
-		}gi
+		}
 	}
 	return 0;
 }

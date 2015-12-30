@@ -11,6 +11,12 @@ struct vtable_record {
     UT_hash_handle hh;
 };
 
+struct type_record {
+    uint32_t type_id;
+    uint32_t type_size;
+    UT_hash_handle hh;
+};
+
 struct sections {
 	instr *instr;
 	size_t instr_cnt;
@@ -28,6 +34,10 @@ struct sections {
 	size_t ckey_cnt;
 
     struct vtable_record *vtable;
+    size_t vtable_cnt;
+
+    struct type_record *types;
+    size_t types_cnt;
 };
 
 #define HEADER_OFFSET	4
