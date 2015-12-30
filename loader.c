@@ -8,6 +8,8 @@
 #include <sys/mman.h>
 #include <arpa/inet.h>
 
+#include "uthash.h"
+
 #include "loader.h"
 
 /*
@@ -43,6 +45,19 @@ struct types {
 	uint16_t types_id;
 	uint32_t types_size;
 };
+
+void add_vtable_record(struct sections* section, struct vtable_record *v) {
+    HASH_ADD_INT(section->vtable, look_up_pair, v );
+}
+
+struct vtable_record *find_table(struct sections* section, uint64_t lup) {
+    struct vtable_record *s;
+
+    HASH_FIND_INT(section->vtable,&lup, s );
+
+    return s;
+}
+
 
 int64_t swap_int64(int64_t in) {
     uint64_t val = (uint64_t) in;
@@ -167,21 +182,59 @@ int parse(uint8_t *buf, struct sections *ret)
             ret->ckey     = keyptr;
 
             printf("offset: %zd\n", offset);
-            uint32_t bytesOfKeys = ntohl(*(keys_start_of_index + (cnt-1)));
-            offset = offset + bytesOfKeys  + sizeof(uint32_t) + sizeof(uint32_t) + (cnt * sizeof(uint32_t));
+
+            uint32_t bytesOfKeys = 0;
+
+            if(cnt != 0)
+              bytesOfKeys = ntohl(*(keys_start_of_index + (cnt-1)));
+
+            offset = offset +
+                     bytesOfKeys  +
+                     sizeof(uint32_t) + sizeof(uint32_t) + (cnt * sizeof(uint32_t));
+            printf("offset: %zd\n", offset);
+            break;
+		  case SECTION_VTABLES:
+            printf("SECTION_VTABLES\n");
+
+            for(int j = 0;j < cnt; j++) {
+
+              uint32_t jump_offset = ntohl(*section_data_ptr);
+              uint32_t protocol_nr = ntohl(*(section_data_ptr + 1));
+              uint32_t type_nr = ntohl(*(section_data_ptr + 2));
+
+              printf("jump_offset: %d\n", jump_offset);
+              printf("protocol_nr: %d\n", protocol_nr);
+              printf("typenr: %d\n", type_nr);
+
+              uint64_t look_up_pair = (uint64_t) protocol_nr << 32 |  (uint64_t) type_nr;
+
+              struct vtable_record *record = malloc(sizeof(struct vtable_record));
+              record->look_up_pair = look_up_pair;
+              record->jump_offset = jump_offset;
+
+              ret->vtable = NULL;
+
+              add_vtable_record(ret,record);
+
+              section_data_ptr = section_data_ptr + 3;
+            }
+
+            printf("offset: %zd\n", offset);
+            offset = offset + len + sizeof(uint32_t);
+
             printf("offset: %zd\n", offset);
 
-		  case SECTION_VTABLES:
-
-			fprintf(stderr, "ignoring section %x\n", hdr[i].sec_len);
-			 break;
+			break;
 		  default:
 		    printf("default\n");
 			return EINVAL;
-		}
+		}gi
 	}
 	return 0;
 }
+              //struct vtable_record *rec = find_table(ret, look_up_pair);
+              //uint32_t o = rec->jump_offset;
+
 
 int loadfile(const char *filename, struct sections *ret)
 {
