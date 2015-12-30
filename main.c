@@ -55,36 +55,56 @@ typedef struct data_struct_s
 
 ///////////////////////////////////////////////////////////////////
 
-
-#define ADDVV 1
-#define SUBVV 3
-#define SETI 2
-#define SETF 60
-#define MULVV 4
-#define MODVV 5
-#define DIVVV 10
-
-#define ISEQ 7
-#define MOV 8
-#define BULKMOV 9
-
-#define LOOP 20
-
-#define JUMP 30
-#define JUMPF 31
-#define JUMPT 32
-
-#define FUNCF 50
-#define FUNCV 51
-
-#define ALLOC 100
-#define GETFIELD 101
-#define SETFIELD 102
-
-#define NSSET 120
-#define NSGET 121
-
-#define EXIT 150
+#define CSTR  0
+#define CKEY  1
+#define CINT  2
+#define CFLOAT  3
+#define CTYPE   4
+#define CBOOL  5
+#define CNIL  6
+#define CSHORT  7
+#define SETF  8
+#define NSSET  9
+#define NSGET  10
+#define ADDVV  11
+#define SUBVV  12
+#define MULVV  13
+#define DIVVV  14
+#define POWVV  15
+#define MODVV  16
+#define ISLT  17
+#define ISGE  18
+#define ISLE  19
+#define ISGT  20
+#define ISEQ  21
+#define ISNEQ  22
+#define MOV  23
+#define NOT  24
+#define NEG  25
+#define JUMP  26
+#define JUMPF 27
+#define JUMPT  28
+#define CALL  29
+#define RET  30
+#define APPLY  31
+#define FNEW  32
+#define VFNEW  33
+#define GETFREEVAR  34
+#define UCLO  35
+#define LOOP  36
+#define BULKMOV 37
+#define NEWARRAY 38
+#define GETARRAY 39
+#define SETARRAY 40
+#define FUNCF 41
+#define FUNCV 42
+#define ALLOC 43
+#define SETFIELD 44
+#define GETFIELD 45
+#define BREAK 46
+#define EXIT 47
+#define DROP 48
+#define TRANC 49
 
 
 static mps_arena_t arena;       /* the arena */
@@ -185,7 +205,6 @@ int64_t get_int(uint64_t slot) {
 
 uint64_t to_int(uint64_t num) {
 
- 
     uint64_t int0 = ((uint64_t) TAG_INTEGER) << 48;
 
     //printf("empty : %016"PRIx64"\n", int0);
@@ -414,7 +433,7 @@ void print_slot (uint64_t slot) {
         }
 }
 
-void print_slots(uint64_t* slots ,int size) {
+void print_slots(uint64_t* pslots ,int size) {
 
     int i = 0;
 
@@ -423,7 +442,7 @@ void print_slots(uint64_t* slots ,int size) {
 
         //printf("slots[%i]: %016"PRIx64"\n", i,  (uint64_t) slots[i] );
 
-        print_slot(slots[i]);
+        print_slot(pslots[i]);
 
         i++;
 
@@ -434,21 +453,31 @@ void print_slots(uint64_t* slots ,int size) {
     }
 }
 
+const char *byte_to_binary(int x)
+{
+    static char b[9];
+    b[0] = '\0';
+
+    int z;
+    for (z = 128; z > 0; z >>= 1)
+    {
+        strcat(b, ((x & z) == z) ? "1" : "0");
+    }
+
+    return b;
+}
+
 static int start(char *file) {
-
-    struct sections sec = {0};
-    int result = loadfile(file, &sec);
-
-    return result;
-
 
     int map_error;
     char key_string[KEY_MAX_LENGTH];
     data_struct_t* value;
-    
+
+    struct sections sec = {0};
+
     symbol_table = hashmap_new();
 
-    struct OpAD set1 =   { .op = SETI, .a = 0, .d = 1 };
+    /*struct OpAD set1 =   { .op = SETI, .a = 0, .d = 1 };
     struct OpAD set2 =   { .op = SETF, .a = 1, .d = 5 };
     struct OpABC add1 =  { .op = ADDVV, .a = 0, .b = 0, .c = 1 }; 
     struct OpAD mov1 =   { .op = MOV, .a = 0, .d = 1 };     
@@ -493,7 +522,7 @@ static int start(char *file) {
                            getg_instr,
                            div1_instr,
                            eq2_instr,
-                           exit_instr };
+                           exit_instr };*/
   
     mps_res_t res;
     mps_root_t root_o;
@@ -507,9 +536,20 @@ static int start(char *file) {
                                        (mps_word_t)TAG_MASK);
     if (res != MPS_RES_OK) printf("Couldn't create slots roots");
 
+    res = loadfile(file, &sec);
+    if (res != MPS_RES_OK) printf("Couldn't load file");
+
+    printf("-----------end of loader ---------------t\n");
+    for(int j = 0;j < 2; j++) {
+        printf("float[%d]: %p\n",j, sec.cfloat + j );
+    }
+    printf("-----------end of loader ---------------t\n");
+
+
+    printf("------------SLOT--------------\n");
 
     while (1) {
-        instr inst = bytecodes[pc];
+        instr inst = sec.instr[pc];
 
         struct OpABC abc = *((struct OpABC *) &inst);
         struct OpAD  ad  = *((struct OpAD *) &inst);
@@ -517,6 +557,22 @@ static int start(char *file) {
         uint8_t op = abc.op;
 
         switch (op) {
+            //CONSTANT FUNCTIONS
+             /*case CINT: {
+
+
+                int target_slot = ad.a;
+                slots[target_slot] = (sec->cint[ad.d]);
+                printf("CINT: %d %d\n", ad.a, ad.d);
+                break;
+            }*/
+            case CFLOAT: {
+                int target_slot = ad.a;
+                printf("sec.cfloat[ad.d]: %f\n", swap(sec.cfloat[0]) );
+
+                printf("CFLOAT: %d %d\n", ad.a, ad.d);
+                break;
+            }
             //MATH
             case ADDVV: {
                 int target_slot = abc.a;
@@ -637,7 +693,7 @@ static int start(char *file) {
                  printf("MOV: %d %d\n", ad.a, ad.d);
                  break;
             }            
-            case SETI: {
+            case CSHORT: {
                 int target_slot = ad.a;
 
                 uint64_t res =  to_int( (uint64_t) ad.d ) ;
@@ -671,8 +727,6 @@ static int start(char *file) {
                                          clj_type,
                                          OBJ_MPS_TYPE_OBJECT);
                  if (res != MPS_RES_OK) printf("Could't not allocate obj");
-
-          
 
 
                  break;
@@ -769,7 +823,7 @@ static int start(char *file) {
                         return 1;
                         }
             default: {
-                printf("skipping instruction: %d", op);
+                printf("\nskipping instruction: %d\n\n", op);
                 break;
             }
 

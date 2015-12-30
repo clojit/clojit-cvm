@@ -89,8 +89,9 @@ int64_t swap_int64(int64_t in) {
 
 
 
+
 // *buf must outlive *sections
-int parse(uint8_t *buf, struct sections *ret)
+int parse(uint8_t *buf, struct sections *sec)
 {
 	size_t offset = 0;
 
@@ -122,8 +123,8 @@ int parse(uint8_t *buf, struct sections *ret)
 	    switch(sec_id) {
 		  case SECTION_INSTRUCTIONS:
 		    printf("SECTION_INSTRUCTIONS  %d\n", cnt);
-		    ret->instr_cnt = cnt;
-            ret->instr = (instr*)(void *) section_data_ptr;
+		    sec->instr_cnt = cnt;
+            sec->instr = (instr*)(void *) section_data_ptr;
 
             //printf("offset: %zd\n", offset);
             offset = offset + len + sizeof(uint32_t);
@@ -132,26 +133,26 @@ int parse(uint8_t *buf, struct sections *ret)
 			break;
 		  case SECTION_CINT:
 		    printf("SECTION_CINT  %d\n", cnt);
-		    ret->cint_cnt = cnt;
-            ret->cint = (int64_t *)(void *)section_data_ptr;
-			//printf("ret->cint: %ld\n", swap_int64( *ret->cint));
+		    sec->cint_cnt = cnt;
+            sec->cint = (int64_t *)(void *)section_data_ptr;
+			//printf("sec->cint: %ld\n", swap_int64( *sec->cint));
 
             //printf("offset: %zd\n", offset);
             offset = offset + len + sizeof(uint32_t);
             //printf("offset: %zd\n", offset);
 
             for(int j = 0;j < cnt; j++) {
-                printf("int[%d]: %" PRId64 "\n",j, swap_int64(ret->cint[j]) );
+                printf("int[%d]: %" PRId64 "\n",j, swap_int64(sec->cint[j]) );
             }
 
 			break;
 		  case SECTION_CFLOAT:
 		    printf("SECTION_CFLOAT  %d\n", cnt);
-		    ret->cfloat_cnt = cnt;
-		    ret->cfloat = (double *)(void *)section_data_ptr;
+		    sec->cfloat_cnt = cnt;
+		    sec->cfloat = (double *)(void *)section_data_ptr;
 
             for(int j = 0;j < cnt; j++) {
-                printf("float[%d]: %f\n",j, swap(ret->cfloat[j]));
+                printf("float[%d]: %f\n",j, swap(sec->cfloat[j]));
             }
 
             //printf("offset: %zd\n", offset);
@@ -176,8 +177,8 @@ int parse(uint8_t *buf, struct sections *ret)
 
                    printf("str[%d]: %s\n",j, strptr[j]);
             }
-            ret->cstr_cnt = cnt;
-            ret->cstr = strptr;
+            sec->cstr_cnt = cnt;
+            sec->cstr = strptr;
 
             //printf("offset: %zd\n", offset);
             uint32_t bytesOfStr = ntohl(*(start_of_index + (cnt-1)));
@@ -203,8 +204,8 @@ int parse(uint8_t *buf, struct sections *ret)
 
                    printf("key[%d]: %s\n",j, keyptr[j]);
             }
-            ret->ckey_cnt = cnt;
-            ret->ckey     = keyptr;
+            sec->ckey_cnt = cnt;
+            sec->ckey     = keyptr;
 
             //printf("offset: %zd\n", offset);
             uint32_t bytesOfKeys = 0;
@@ -219,8 +220,8 @@ int parse(uint8_t *buf, struct sections *ret)
             break;
 		  case SECTION_VTABLES:
             printf("SECTION_VTABLES  %d\n", cnt);
-            ret->vtable = NULL;
-            ret->vtable_cnt = cnt;
+            sec->vtable = NULL;
+            sec->vtable_cnt = cnt;
             for(int j = 0;j < cnt; j++) {
 
               uint32_t jump_offset = ntohl(*section_data_ptr);
@@ -234,7 +235,7 @@ int parse(uint8_t *buf, struct sections *ret)
               record->look_up_pair = look_up_pair;
               record->jump_offset = jump_offset;
 
-              add_vtable_record(ret,record);
+              add_vtable_record(sec,record);
 
               section_data_ptr = section_data_ptr + 3;
             }
@@ -247,8 +248,8 @@ int parse(uint8_t *buf, struct sections *ret)
 		  case SECTION_TYPES:
             printf("SECTION_TYPES  %d\n", cnt);
 
-            ret->types = NULL;
-            ret->types_cnt = cnt;
+            sec->types = NULL;
+            sec->types_cnt = cnt;
             for(int j = 0;j < cnt; j++) {
               uint32_t t_id = ntohl(*section_data_ptr);
               uint32_t type_size = ntohl(*(section_data_ptr + 1));
@@ -256,7 +257,7 @@ int parse(uint8_t *buf, struct sections *ret)
               struct type_record *record = malloc(sizeof(struct type_record));
               record->type_id = t_id;
               record->type_size = type_size;
-              add_type_record(ret,record);
+              add_type_record(sec,record);
               section_data_ptr = section_data_ptr + 2;
             }
             break;
@@ -265,6 +266,13 @@ int parse(uint8_t *buf, struct sections *ret)
 			return EINVAL;
 		}
 	}
+
+    printf("-----------end of loader ---------------t\n");
+    for(int j = 0;j < 2; j++) {
+        printf("float[%d]: %p\n",j, sec->cfloat + j);
+    }
+    printf("-----------end of loader ---------------t\n");
+
 	return 0;
 }
               //struct vtable_record *rec = find_table(ret, look_up_pair);
