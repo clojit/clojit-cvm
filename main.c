@@ -190,6 +190,12 @@ const uint16_t TAG_POINTER_HI = 0xFFFF;
 const uint16_t TAG_POINTER_LO = 0x0000;
 const uint16_t TAG_INTEGER    = 0xFFFE;
 
+union slot {
+    double dbl;
+    uintptr_t ptr;
+    uint64_t raw;
+};
+
 /* obj_gen_params -- initial setup for generational GC          %%MPS
  *
  * Each structure in this array describes one generation of objects. The
@@ -214,7 +220,7 @@ static mps_gen_param_s obj_gen_params[] = {
 
 
 uint64_t invert_non_negative(uint64_t slot) {
-    uint64_t mask =  ( ~((int64_t)slot)  >> 63) & !(1 << 63);
+    uint64_t mask =  ( ~((int64_t)slot)  >> 63) & !(1LU << 63);
     return slot ^ mask;
 }
 
@@ -231,8 +237,9 @@ bool is_double(uint64_t slot) {
 
 double get_double(uint64_t slot) {
     if (is_double(slot)) {
-        uint64_t bits = invert_non_negative(slot);
-        return *((double *)(void *) &bits);
+        union slot bits;
+        bits.raw = invert_non_negative(slot);
+        return *((double *)(void*) bits.ptr);
     } else {
         printf("get_double called with nondouble\n");
         return 0.0;
@@ -240,9 +247,9 @@ double get_double(uint64_t slot) {
 }
 
 uint64_t to_double(double num) {
-    uint64_t result = *((uint64_t*)(void*) &num);
-    uint64_t result2 = invert_non_negative(result);
-    return result2;
+    union slot bits;
+    bits.dbl = num;
+    return invert_non_negative(bits.raw);
 }
 
 //Int Function
