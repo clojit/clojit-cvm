@@ -179,7 +179,7 @@ int parse(uint8_t *buf, struct sections *sec)
                    if(j != 0)
                         charskip = ntohl(*(keys_start_of_index + j-1));
 
-                   keyptr[j] = keys_start_of_character_data_8 + charskip;
+                   keyptr[j] = (char*)(void*)(keys_start_of_character_data_8 + charskip);
 
                    printf("key[%d]: %s\n",j, keyptr[j]);
             }

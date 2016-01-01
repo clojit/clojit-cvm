@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <string.h>
+#include <stdbool.h>
+#include <arpa/inet.h>
 
 #include "mps.h"
 #include "mpsavm.h"
@@ -10,7 +12,6 @@
 #include "uthash.h"
 #include "loader.h"
 
-#include <stdbool.h>
 
 #define WORD_SIZE   sizeof(uint64_t)
 #define ALIGNMENT   WORD_SIZE
@@ -37,6 +38,48 @@ static const char *OBJ_MPS_TYPE_NAMES[] = {
 /* LANGUAGE EXTENSION */
 
 #define LENGTH(array)	(sizeof(array) / sizeof(array[0]))
+
+
+///////////////////////// Prototypes ///////////////////////
+
+uint16_t tag(uint64_t slot);
+
+bool is_int(uint64_t slot);
+int64_t get_int(uint64_t slot);
+uint64_t to_int(uint64_t num);
+
+double get_double(uint64_t slot);
+uint64_t to_double(double num);
+bool is_double(uint64_t slot);
+
+bool is_nil(uint64_t slot);
+bool is_pointer(uint64_t slot);
+
+mps_res_t rust_mps_alloc_obj(mps_addr_t *addr_o,
+                             mps_ap_t ap,
+                             uint32_t size,
+                             uint16_t cljtype,
+                             uint8_t mpstype);
+void add_symbol_table_pair(struct sections* section, char * key, uint64_t num);
+uint64_t invert_non_negative(uint64_t slot);
+uint64_t get_symbol_table_record(struct sections* section, char* key);
+void printbits(uint32_t n);
+const char *byte_to_binary(int x);
+void print_slots(uint64_t* pslots ,int size);
+void print_slot (uint64_t slot);
+void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt);
+mps_res_t rust_mps_create_ap(mps_ap_t *ap_o, mps_pool_t pool);
+mps_res_t rust_mps_create_amc_pool(mps_pool_t *pool_o, mps_fmt_t *fmt_o,mps_chain_t obj_chain,mps_arena_t _arena);
+mps_res_t rust_mps_create_vm_area(mps_arena_t *arena_o,size_t arenasize);
+uint64_t get_symbol_table_record(struct sections* section, char* key);
+void add_symbol_table_pair(struct sections* section, char * key, uint64_t num);
+uint64_t get_symbol_table_record(struct sections* section, char* key);
+void add_symbol_table_record(struct sections* section,
+                             struct symbol_table_record *record);
+void add_symbol_table_pair(struct sections* section, char * key, uint64_t num);
+uint64_t get_symbol_table_record(struct sections* section, char* key);
+
+////////////////////////////////////////////////////////////
 
 
 ///////////////////////// SYMBOL TABLE //////////////////////////////
@@ -191,7 +234,7 @@ double get_double(uint64_t slot) {
         uint64_t bits = invert_non_negative(slot);
         return *((double *)(void *) &bits);
     } else {
-        printf("get_double called with nondouble");
+        printf("get_double called with nondouble\n");
         return 0.0;
     }
 }
@@ -346,7 +389,7 @@ mps_res_t rust_mps_alloc_obj(mps_addr_t *addr_o,
     return res;
 }
 
-mps_res_t rust_mps_create_amc_pool(mps_pool_t *pool_o, mps_fmt_t *fmt_o,mps_chain_t obj_chain,mps_arena_t arena)
+mps_res_t rust_mps_create_amc_pool(mps_pool_t *pool_o, mps_fmt_t *fmt_o,mps_chain_t obj_chain,mps_arena_t _arena)
 {
     mps_res_t res;
     MPS_ARGS_BEGIN(args) {
@@ -356,7 +399,7 @@ mps_res_t rust_mps_create_amc_pool(mps_pool_t *pool_o, mps_fmt_t *fmt_o,mps_chai
         MPS_ARGS_ADD(args, MPS_KEY_FMT_FWD, obj_fwd);
         MPS_ARGS_ADD(args, MPS_KEY_FMT_ISFWD, obj_isfwd);
         MPS_ARGS_ADD(args, MPS_KEY_FMT_PAD, obj_pad);
-        res = mps_fmt_create_k(fmt_o, arena, args);
+        res = mps_fmt_create_k(fmt_o, _arena, args);
     } MPS_ARGS_END(args);
 
     if (res != MPS_RES_OK) return res;
@@ -364,7 +407,7 @@ mps_res_t rust_mps_create_amc_pool(mps_pool_t *pool_o, mps_fmt_t *fmt_o,mps_chai
     MPS_ARGS_BEGIN(args) {
         MPS_ARGS_ADD(args, MPS_KEY_CHAIN, obj_chain);
         MPS_ARGS_ADD(args, MPS_KEY_FORMAT, *fmt_o);
-        res = mps_pool_create_k(pool_o, arena, mps_class_amc(), args);
+        res = mps_pool_create_k(pool_o, _arena, mps_class_amc(), args);
     } MPS_ARGS_END(args);
 
     return res;
@@ -400,9 +443,9 @@ static void rust_mps_debug_print_formatted_object(mps_addr_t addr,
     }
 }
 
-void rust_mps_debug_print_reachable(mps_arena_t arena, mps_fmt_t fmt) {
+void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt) {
     fprintf(stderr, "==== Walking Reachable Objects ====\n");
-    mps_arena_formatted_objects_walk(arena, rust_mps_debug_print_formatted_object, fmt, 0);
+    mps_arena_formatted_objects_walk(_arena, rust_mps_debug_print_formatted_object, fmt, 0);
 }
 
 void print_slot (uint64_t slot) {
@@ -499,7 +542,7 @@ static int start(char *file) {
                                        (mps_word_t)TAG_MASK);
     if (res != MPS_RES_OK) printf("Couldn't create slots roots");
 
-    struct OpAD set1 =   { .op = CSHORT, .a = 0, .d = 1 };
+    /*struct OpAD set1 =   { .op = CSHORT, .a = 0, .d = 1 };
     struct OpAD set2 =   { .op = SETF, .a = 1, .d = 5 };
     struct OpABC add1 =  { .op = ADDVV, .a = 0, .b = 0, .c = 1 };
     struct OpAD mov1 =   { .op = MOV, .a = 0, .d = 1 };
@@ -544,7 +587,7 @@ static int start(char *file) {
                            getg_instr,
                            div1_instr,
                            eq2_instr,
-                           exit_instr };
+                           exit_instr };*/
 
     res = loadfile(file, &sec);
     if (res != MPS_RES_OK) printf("Couldn't load file");
@@ -715,7 +758,7 @@ static int start(char *file) {
             case CSHORT: {
                 int target_slot = ad.a;
 
-                uint64_t res =  to_int( (uint64_t) ad.d ) ;
+                res =  to_int( (uint64_t) ad.d ) ;
                 slots[target_slot] = to_int( (uint64_t) ad.d  );
                 printf("SETI: %d %d\n", ad.a, ad.d);
 
@@ -877,10 +920,10 @@ int main(int argc, char **argv) {
 
     if(argc > 1) {
         exit_code = start(argv[1]);
+    } else {
+        exit_code = MPS_RES_OK;
     }
 
-
- 
     mps_arena_park(arena);
     mps_root_destroy(reg_root);
     mps_thread_dereg(thread);
@@ -890,7 +933,7 @@ int main(int argc, char **argv) {
     mps_fmt_destroy(obj_fmt);
 //    mps_arena_destroy(arena);
 
-
+    return exit_code;
 
 }
 

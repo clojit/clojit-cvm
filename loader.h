@@ -18,7 +18,7 @@ struct type_record {
 };
 
 struct symbol_table_record {
-    const char *symbol;          /* key */
+    char *symbol;          /* key */
     uint64_t number;
     UT_hash_handle hh;         /* makes this structure hashable */
 };
@@ -60,5 +60,14 @@ struct sections {
 
 int parse(uint8_t *buf, struct sections *ret);
 int loadfile(const char *filename, struct sections *ret);
+
+double swap(double d);
+int64_t swap_int64(int64_t in);
+struct type_record *get_type_record(struct sections* section, uint32_t id);
+void add_type_record(struct sections* section, struct type_record *v);
+struct vtable_record *get_vtable_record(struct sections* section, uint64_t lup);
+void add_vtable_record(struct sections* section, struct vtable_record *v);
+
+
 
 #endif /* _LOADER_H_*/

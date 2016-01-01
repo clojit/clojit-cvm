@@ -16,7 +16,6 @@ LDFLAGS+=$(SANFLAGS)
 OBJS=  main.o
 OBJS+= loader.o
 OBJS+= mps.o
-OBJS+= hashmap.o
 
 all: main
 
@@ -30,9 +29,6 @@ main.o: $(MPS_KIT)
 
 mps.o: $(MPS_KIT)
 	$(CC) $(CFLAGS) -DCONFIG_VAR_COOL -c "$(MPS_KIT)/code/mps.c"
-
-hashmap.o:
-	$(CC) $(CFLAGS) -c "c_hashmap/hashmap.c"
 
 main: $(OBJS)
 
