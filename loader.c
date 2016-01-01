@@ -12,24 +12,6 @@
 
 #include "loader.h"
 
-/*
-(defcodec cljbc-format [(repeated {:section-id :int32
-                                   :size :int32})
-                        (repeated :int32)
-                        (repeated :int64)
-                        (repeated :float64)
-
-                        {:offsets (repeated :int32)
-                         :off     (repeated (string :utf-8))}
-
-                        {:offsets (repeated :int32)
-                         :off (repeated (string :utf-8))}
-                        (repeated {:protocol :uint32
-                                   :type :int16
-                                   :fn-jump-offset :int32})
-                        (repeated {:type-id :uint16 :size :int32})])
-*/
-
 struct parse_hdr {
 	uint32_t sec_id;
 	uint32_t sec_len;
@@ -86,9 +68,6 @@ int64_t swap_int64(int64_t in) {
     val = (val << 32) | ((val >> 32) & 0xFFFFFFFFULL);
     return (int64_t) val;
 }
-
-
-
 
 // *buf must outlive *sections
 int parse(uint8_t *buf, struct sections *sec)
@@ -175,7 +154,7 @@ int parse(uint8_t *buf, struct sections *sec)
 
                    strptr[j] = start_of_character_data_8 + charskip;
 
-                   printf("str[%d]: %s\n",j, strptr[j]);
+                   printf("str[%d] (address %p) : %s\n",j, strptr[j] , strptr[j]);
             }
             sec->cstr_cnt = cnt;
             sec->cstr = strptr;
@@ -267,17 +246,16 @@ int parse(uint8_t *buf, struct sections *sec)
 		}
 	}
 
-    printf("-----------end of loader ---------------t\n");
+    /*printf("-----------end of loader ---------------t\n");
     for(int j = 0;j < 2; j++) {
         printf("float[%d]: %p\n",j, sec->cfloat + j);
     }
-    printf("-----------end of loader ---------------t\n");
+    printf("-----------end of loader ---------------t\n");*/
 
 	return 0;
 }
               //struct vtable_record *rec = find_table(ret, look_up_pair);
               //uint32_t o = rec->jump_offset;
-
 
 int loadfile(const char *filename, struct sections *ret)
 {

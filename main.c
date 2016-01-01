@@ -7,7 +7,7 @@
 #include "mps.h"
 #include "mpsavm.h"
 #include "mpscamc.h"
-#include "c_hashmap/hashmap.h"
+#include "uthash.h"
 #include "loader.h"
 
 #include <stdbool.h>
@@ -39,21 +39,34 @@ static const char *OBJ_MPS_TYPE_NAMES[] = {
 #define LENGTH(array)	(sizeof(array) / sizeof(array[0]))
 
 
+///////////////////////// SYMBOL TABLE //////////////////////////////
 
-////////////////////////////Hashmap////////////////////////////////////
+void add_symbol_table_record(struct sections* section,
+                             struct symbol_table_record *record) {
+    HASH_ADD_KEYPTR(hh,section->symbol_table,record->symbol,strlen(record->symbol),record);
+}
 
-#define KEY_MAX_LENGTH (256)
-#define KEY_PREFIX ("somekey")
-#define KEY_COUNT (1024*1024)
+void add_symbol_table_pair(struct sections* section, char * key, uint64_t num) {
 
-typedef struct data_struct_s
-{
-    char key_string[KEY_MAX_LENGTH];
-    uint64_t number;
-} data_struct_t;
+    struct symbol_table_record *record;
+    record = (struct symbol_table_record*)malloc(sizeof(struct symbol_table_record));
+
+    record->symbol = key;
+    record->number = num;
+
+    HASH_ADD_KEYPTR( hh, section->symbol_table, record->symbol, strlen(record->symbol), record );
+}
+
+uint64_t get_symbol_table_record(struct sections* section, char* key) {
+    struct symbol_table_record *v;
+    HASH_FIND_STR(section->symbol_table,key, v);
+
+    return v->number;
+}
 
 
 ///////////////////////////////////////////////////////////////////
+
 
 #define CSTR  0
 #define CKEY  1
@@ -106,15 +119,12 @@ typedef struct data_struct_s
 #define DROP 48
 #define TRANC 49
 
-
 static mps_arena_t arena;       /* the arena */
 static mps_pool_t obj_pool;     /* pool for ordinary Scheme objects */
 static mps_ap_t obj_ap;         /* allocation point used to allocate objects */
 
 static uint64_t slots[100] = {0};
 static int pc = 0;
-
-static map_t symbol_table;
 
 typedef uint32_t instr;
 
@@ -396,41 +406,39 @@ void rust_mps_debug_print_reachable(mps_arena_t arena, mps_fmt_t fmt) {
 }
 
 void print_slot (uint64_t slot) {
-          if( is_int(slot) ) {
-            printf("i%ld ", get_int( slot )  );
-            //printf(" is int\n");
+    if( is_int(slot) ) {
+        printf("i%ld ", get_int( slot )  );
+        //printf(" is int\n");
+    }
+
+    if( is_double(slot) ) {
+        //printf(" is double\n");
+        printf("f%.2f ", get_double( slot ) );
+    }
+
+    if( is_nil( slot ) ) {
+        //printf(" is nil\n");
+        printf("n0 ");
+    }
+
+    if( is_pointer( slot ) ) {
+        //printf(" is is_pointer\n");
+        uint64_t* header_ptr = (uint64_t*) slot;
+
+        struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
+
+        //printf(" pheader: %016"PRIx64" ", header);
+
+        //< mpstype: %02"PRIx64", _: %02"PRIx64" cljtype: %04"PRIx64", size: %08"PRIx64">
+        printf("( [cljtype: %d, size: %d] ", obj->cljtype,obj->size );
+
+        for(int i = 0; i != ((obj->size / 8) - 1); i++) {
+            //printf(" <field %i: %016"PRIx64"> ", i,  obj->ref[i] );
+            print_slot( (uintptr_t) (void *) obj->ref[i]);
         }
-       
-        if( is_double(slot) ) {
-            //printf(" is double\n");
-            printf("f%.2f ", get_double( slot ) );
-        }
-        
-        if( is_nil( slot ) ) {
-            //printf(" is nil\n");
-            printf("n0 ");
-        }
 
-        if( is_pointer( slot ) ) {
-            //printf(" is is_pointer\n");
-
-
-            uint64_t* header_ptr = (uint64_t*) slot;
-
-            struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
-
-            //printf(" pheader: %016"PRIx64" ", header);
-
-            //< mpstype: %02"PRIx64", _: %02"PRIx64" cljtype: %04"PRIx64", size: %08"PRIx64">
-            printf("( [cljtype: %d, size: %d] ", obj->cljtype,obj->size );
-
-            for(int i = 0; i != ((obj->size / 8) - 1); i++) {
-                //printf(" <field %i: %016"PRIx64"> ", i,  obj->ref[i] );
-                print_slot( (uintptr_t) (void *) obj->ref[i]);
-            }
-                
-            printf(") ");
-        }
+        printf(") ");
+    }
 }
 
 void print_slots(uint64_t* pslots ,int size) {
@@ -467,20 +475,34 @@ const char *byte_to_binary(int x)
     return b;
 }
 
-static int start(char *file) {
+void printbits(uint32_t n) {
+    if (n) {
+        printbits(n >> 1);
+        printf("%d", n & 1);
+    }
+}
 
-    int map_error;
-    char key_string[KEY_MAX_LENGTH];
-    data_struct_t* value;
+
+static int start(char *file) {
 
     struct sections sec = {0};
 
-    symbol_table = hashmap_new();
+    mps_res_t res;
+    mps_root_t root_o;
 
-    /*struct OpAD set1 =   { .op = SETI, .a = 0, .d = 1 };
+    res = mps_root_create_table_masked(&root_o, 
+                                       arena,
+                                       mps_rank_exact(),
+                                       (mps_rm_t)0,
+                                       (mps_addr_t *)slots,
+                                       100,
+                                       (mps_word_t)TAG_MASK);
+    if (res != MPS_RES_OK) printf("Couldn't create slots roots");
+
+    struct OpAD set1 =   { .op = CSHORT, .a = 0, .d = 1 };
     struct OpAD set2 =   { .op = SETF, .a = 1, .d = 5 };
-    struct OpABC add1 =  { .op = ADDVV, .a = 0, .b = 0, .c = 1 }; 
-    struct OpAD mov1 =   { .op = MOV, .a = 0, .d = 1 };     
+    struct OpABC add1 =  { .op = ADDVV, .a = 0, .b = 0, .c = 1 };
+    struct OpAD mov1 =   { .op = MOV, .a = 0, .d = 1 };
     struct OpABC bmov =  { .op = BULKMOV, .a = 2, .b = 0, .c = 2 };
     struct OpAD init = { .op = ALLOC, .a = 4, .d = 1 };
     struct OpABC set = { .op = SETFIELD, .a = 4, .b = 0, .c = 3 };
@@ -507,13 +529,13 @@ static int start(char *file) {
     instr div1_instr =  *(instr*)(void*) &div1;
     instr eq2_instr =  *(instr*)(void*) &eq2;
 
-    instr bytecodes[100] = { 
+    instr bytecodes[100] = {
                            set1instr,
                            set2instr,
-                           add1instr, 
-                           sub1instr, 
-                           bmov1instr, 
-                           set1instr, 
+                           add1instr,
+                           sub1instr,
+                           bmov1instr,
+                           set1instr,
                            jump1instr,
                            init_instr,
                            setg_instr,
@@ -522,34 +544,30 @@ static int start(char *file) {
                            getg_instr,
                            div1_instr,
                            eq2_instr,
-                           exit_instr };*/
-  
-    mps_res_t res;
-    mps_root_t root_o;
-
-    res = mps_root_create_table_masked(&root_o, 
-                                       arena,
-                                       mps_rank_exact(),
-                                       (mps_rm_t)0,
-                                       (mps_addr_t *)slots,
-                                       100,
-                                       (mps_word_t)TAG_MASK);
-    if (res != MPS_RES_OK) printf("Couldn't create slots roots");
+                           exit_instr };
 
     res = loadfile(file, &sec);
     if (res != MPS_RES_OK) printf("Couldn't load file");
 
-    printf("-----------end of loader ---------------t\n");
+    sec.symbol_table = NULL;
+
+    /*printf("-----------end of loader ---------------t\n");
     for(int j = 0;j < 2; j++) {
         printf("float[%d]: %p\n",j, sec.cfloat + j );
     }
-    printf("-----------end of loader ---------------t\n");
+    printf("-----------end of loader ---------------t\n");*/
+
+
 
 
     printf("------------SLOT--------------\n");
 
     while (1) {
         instr inst = sec.instr[pc];
+
+        //printf("------------INSTURCTION --------------\n");
+        //printbits( ntohl(inst) );
+        //printf("\n");
 
         struct OpABC abc = *((struct OpABC *) &inst);
         struct OpAD  ad  = *((struct OpAD *) &inst);
@@ -566,13 +584,14 @@ static int start(char *file) {
                 printf("CINT: %d %d\n", ad.a, ad.d);
                 break;
             }*/
+            /*
             case CFLOAT: {
                 int target_slot = ad.a;
                 printf("sec.cfloat[ad.d]: %f\n", swap(sec.cfloat[0]) );
 
                 printf("CFLOAT: %d %d\n", ad.a, ad.d);
                 break;
-            }
+            }*/
             //MATH
             case ADDVV: {
                 int target_slot = abc.a;
@@ -790,29 +809,16 @@ static int start(char *file) {
             }
             //NSSETS   var     const-str  ->  ns[const-str] = var
             case NSSET: {
-                printf("NSSET: %d %d\n", ad.a, ad.d);
-                value = malloc(sizeof(data_struct_t));
-                snprintf(value->key_string, KEY_MAX_LENGTH, "%s%d", KEY_PREFIX, ad.d);
-                //printf("key: %s  val (slots[%d]:", value->key_string, ad.a );
-                //print_slot(slots[ad.a]);
-                //printf(")\n");                
-                value->number = slots[ad.a];
-
-                map_error = hashmap_put(symbol_table, value->key_string, value);
-                assert(map_error==MAP_OK);
-
+                uint16_t d = ntohs(ad.d);
+                printf("NSSET: %d %d  const str: %s\n", ad.a, d, sec.cstr[d]);
+                add_symbol_table_pair(&sec,sec.cstr[d], slots[ad.a] );
                 break;
             }
             //NSGETS   dst     const-str  ->  dst = ns[const-str]
             case NSGET: {
-                printf("NSGET: %d %d\n", ad.a, ad.d);
-                snprintf(key_string, KEY_MAX_LENGTH, "%s%d", KEY_PREFIX, ad.d);
-                //printf("(get: %s val: ", key_string);
-                map_error = hashmap_get(symbol_table, key_string, (void**)(&value));
-                assert(map_error==MAP_OK);
-                slots[ad.a] = value->number;
-                //print_slot(slots[ad.a]);
-                //printf(")\n");
+                uint16_t d = ntohs(ad.d);
+                printf("NSGET: %d %d  const str: %s\n", ad.a, d, sec.cstr[d]);
+                slots[ad.a] = get_symbol_table_record(&sec,sec.cstr[d]);
                 break;
             }
             case LOOP: { break; }

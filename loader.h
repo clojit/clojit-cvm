@@ -17,6 +17,12 @@ struct type_record {
     UT_hash_handle hh;
 };
 
+struct symbol_table_record {
+    const char *symbol;          /* key */
+    uint64_t number;
+    UT_hash_handle hh;         /* makes this structure hashable */
+};
+
 struct sections {
 	instr *instr;
 	size_t instr_cnt;
@@ -27,10 +33,10 @@ struct sections {
 	double *cfloat;
 	size_t cfloat_cnt;
 	
-	char *cstr;
+	char **cstr;
 	size_t cstr_cnt;
 
-	char *ckey;
+	char **ckey;
 	size_t ckey_cnt;
 
     struct vtable_record *vtable;
@@ -38,6 +44,8 @@ struct sections {
 
     struct type_record *types;
     size_t types_cnt;
+
+    struct symbol_table_record *symbol_table;
 };
 
 #define HEADER_OFFSET	4
