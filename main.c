@@ -45,8 +45,13 @@ static const char *OBJ_MPS_TYPE_NAMES[] = {
 uint16_t tag(uint64_t slot);
 
 bool is_int(uint64_t slot);
-int64_t get_int(uint64_t slot);
-uint64_t to_int(uint64_t num);
+int32_t get_int(uint64_t slot);
+uint64_t to_int(int32_t num);
+
+bool is_bool(uint64_t slot);
+bool get_bool(uint64_t slot);
+uint64_t to_bool(bool value);
+
 
 double get_double(uint64_t slot);
 uint64_t to_double(double num);
@@ -186,9 +191,10 @@ struct OpAD {
 
 const uint16_t TAG_DOUBLE_MAX = 0xFFF8;
 const uint16_t TAG_DOUBLE_MIN = 0x0007;
-const uint16_t TAG_POINTER_HI = 0xFFFF;
 const uint16_t TAG_POINTER_LO = 0x0000;
+const uint16_t TAG_POINTER_HI = 0xFFFF;
 const uint16_t TAG_INTEGER    = 0xFFFE;
+const uint16_t TAG_BOOL       = 0xFFFD;
 
 union slot {
     double dbl;
@@ -259,11 +265,11 @@ bool is_int(uint64_t slot) {
     return t == TAG_INTEGER;
 }
 
-int64_t get_int(uint64_t slot) {
+int32_t get_int(uint64_t slot) {
     return (slot & 0xFFFFFFFF);
 }
 
-uint64_t to_int(uint64_t num) {
+uint64_t to_int(int32_t num) {
 
     uint64_t int0 = ((uint64_t) TAG_INTEGER) << 48;
 
@@ -281,6 +287,23 @@ uint64_t to_int(uint64_t num) {
 
 bool is_nil(uint64_t slot) {
     return slot == 0;
+}
+
+// Bool Function
+
+bool is_bool(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_BOOL;
+}
+
+bool get_bool(uint64_t slot) {
+    return (bool) (slot & 0x1);
+}
+
+uint64_t to_bool(bool value) {
+    uint64_t mask = ((uint64_t) TAG_BOOL) << 48;
+    uint64_t result = mask | (uint64_t) value;
+    return result;
 }
 
 // is Obj Function
@@ -457,7 +480,7 @@ void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt) {
 
 void print_slot (uint64_t slot) {
     if( is_int(slot) ) {
-        printf("i%ld ", get_int( slot )  );
+        printf("i%d ", get_int( slot )  );
         //printf(" is int\n");
     }
 
