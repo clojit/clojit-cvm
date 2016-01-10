@@ -627,11 +627,11 @@ static int start(char *file) {
         switch (op) {
             //CONSTANT FUNCTIONS
              /*case CINT: {
+                uint16_t d = ntohs(ad.d);
+                printf("CINT: %d %d const: %d\n", ad.a, d, sec->cint[d]);
 
+                slots[ad.a] = sec->cint[d];
 
-                int target_slot = ad.a;
-                slots[target_slot] = (sec->cint[ad.d]);
-                printf("CINT: %d %d\n", ad.a, ad.d);
                 break;
             }*/
             /*
@@ -738,11 +738,6 @@ static int start(char *file) {
                 uint64_t bslot = slots[abc.b];
                 uint64_t cslot = slots[abc.c];
 
-
-                //print_slot(bslot);
-                //printf(" ");
-                //print_slot(bslot);
-                //printf("\n");
                 if ( is_int(bslot) && is_int(cslot) ) {
                     slots[target_slot] = (get_int(bslot) == get_int(cslot));
                     break;
@@ -764,11 +759,11 @@ static int start(char *file) {
             }            
             case CSHORT: {
                 int target_slot = ad.a;
+                uint16_t d16 = ntohs(ad.d);
+                uint64_t d = (uint64_t) d16;
 
-                res =  to_int( (uint64_t) ad.d ) ;
-                slots[target_slot] = to_int( (uint64_t) ad.d  );
-                printf("SETI: %d %d\n", ad.a, ad.d);
-
+                printf("CSHORT: %d %d\n", ad.a, d16);
+                slots[target_slot] = to_int(d);
                 break;
             }
             case SETF: {
@@ -860,14 +855,14 @@ static int start(char *file) {
             //NSSETS   var     const-str  ->  ns[const-str] = var
             case NSSET: {
                 uint16_t d = ntohs(ad.d);
-                printf("NSSET: %d %d  const str: %s\n", ad.a, d, sec.cstr[d]);
+                printf("NSSET: %d %d\n", ad.a, d);
                 add_symbol_table_pair(&sec,sec.cstr[d], slots[ad.a] );
                 break;
             }
             //NSGETS   dst     const-str  ->  dst = ns[const-str]
             case NSGET: {
                 uint16_t d = ntohs(ad.d);
-                printf("NSGET: %d %d  const str: %s\n", ad.a, d, sec.cstr[d]);
+                printf("NSGET: %d %d\n", ad.a, d);
                 slots[ad.a] = get_symbol_table_record(&sec,sec.cstr[d]);
                 break;
             }
