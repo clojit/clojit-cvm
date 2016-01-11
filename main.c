@@ -44,20 +44,22 @@ static const char *OBJ_MPS_TYPE_NAMES[] = {
 
 uint16_t tag(uint64_t slot);
 
-bool is_int(uint64_t slot);
-int32_t get_int(uint64_t slot);
-uint64_t to_int(int32_t num);
+uint64_t get_nil();
+
+bool is_small_int(uint64_t slot);
+int32_t get_small_int(uint64_t slot);
+uint64_t to_small_int(int32_t num);
 
 bool is_bool(uint64_t slot);
 bool get_bool(uint64_t slot);
 uint64_t to_bool(bool value);
-
 
 double get_double(uint64_t slot);
 uint64_t to_double(double num);
 bool is_double(uint64_t slot);
 
 bool is_nil(uint64_t slot);
+
 bool is_pointer(uint64_t slot);
 
 mps_res_t rust_mps_alloc_obj(mps_addr_t *addr_o,
@@ -69,7 +71,7 @@ void add_symbol_table_pair(struct sections* section, char * key, uint64_t num);
 uint64_t invert_non_negative(uint64_t slot);
 uint64_t get_symbol_table_record(struct sections* section, char* key);
 void printbits(uint32_t n);
-const char *byte_to_binary(int x);
+//const char *byte_to_binary(int x);
 void print_slots(uint64_t* pslots ,int size);
 void print_slot (uint64_t slot);
 void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt);
@@ -172,7 +174,7 @@ static mps_pool_t obj_pool;     /* pool for ordinary Scheme objects */
 static mps_ap_t obj_ap;         /* allocation point used to allocate objects */
 
 static uint64_t slots[100] = {0};
-static int pc = 0;
+static uint32_t pc = 0;
 
 typedef uint32_t instr;
 
@@ -189,12 +191,12 @@ struct OpAD {
     uint16_t d;
 } __attribute__((packed));
 
-const uint16_t TAG_DOUBLE_MAX = 0xFFF8;
-const uint16_t TAG_DOUBLE_MIN = 0x0007;
-const uint16_t TAG_POINTER_LO = 0x0000;
-const uint16_t TAG_POINTER_HI = 0xFFFF;
-const uint16_t TAG_INTEGER    = 0xFFFE;
-const uint16_t TAG_BOOL       = 0xFFFD;
+const uint16_t TAG_DOUBLE_MAX    = 0xFFF8;
+const uint16_t TAG_DOUBLE_MIN    = 0x0007;
+const uint16_t TAG_POINTER_LO    = 0x0000;
+const uint16_t TAG_POINTER_HI    = 0xFFFF;
+const uint16_t TAG_SMALL_INTEGER = 0xFFFE;
+const uint16_t TAG_BOOL          = 0xFFFD;
 
 union slot {
     double dbl;
@@ -260,25 +262,25 @@ uint64_t to_double(double num) {
 
 //Int Function
 
-bool is_int(uint64_t slot) {
+bool is_small_int(uint64_t slot) {
     uint16_t t = tag(slot);
-    return t == TAG_INTEGER;
+    return t == TAG_SMALL_INTEGER;
 }
 
-int32_t get_int(uint64_t slot) {
+int32_t get_small_int(uint64_t slot) {
     return (slot & 0xFFFFFFFF);
 }
 
-uint64_t to_int(int32_t num) {
+uint64_t to_small_int(int32_t num) {
 
-    uint64_t int0 = ((uint64_t) TAG_INTEGER) << 48;
+    uint64_t int0 = ((uint64_t) TAG_SMALL_INTEGER) << 48;
 
     //printf("empty : %016"PRIx64"\n", int0);
     //printf("num64 : %016"PRIx64"\n", (uint64_t) num);
 
     uint64_t result = int0 | num;
 
-    //printf("to_int result: %016"PRIx64"\n", result);
+    //printf("to_small_int result: %016"PRIx64"\n", result);
 
     return result;
 }
@@ -288,6 +290,11 @@ uint64_t to_int(int32_t num) {
 bool is_nil(uint64_t slot) {
     return slot == 0;
 }
+
+uint64_t get_nil() {
+    return 0;
+}
+
 
 // Bool Function
 
@@ -305,6 +312,8 @@ uint64_t to_bool(bool value) {
     uint64_t result = mask | (uint64_t) value;
     return result;
 }
+
+
 
 // is Obj Function
 
@@ -410,7 +419,6 @@ mps_res_t rust_mps_alloc_obj(mps_addr_t *addr_o,
         obj->cljtype = cljtype;
         obj->size = size;
 
-       
         // zero all fields
         memset(obj->ref, 0, size - HEADER_SIZE);
 
@@ -479,8 +487,8 @@ void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt) {
 }
 
 void print_slot (uint64_t slot) {
-    if( is_int(slot) ) {
-        printf("i%d ", get_int( slot )  );
+    if( is_small_int(slot) ) {
+        printf("i%d ", get_small_int( slot )  );
         //printf(" is int\n");
     }
 
@@ -528,25 +536,22 @@ void print_slots(uint64_t* pslots ,int size) {
         i++;
 
         if(i == size) {
-            printf("\n");
+            printf("\n\n");
             return;
         }
     }
 }
 
-const char *byte_to_binary(int x)
-{
+/*const char *byte_to_binary(int x) {
     static char b[9];
     b[0] = '\0';
 
-    int z;
-    for (z = 128; z > 0; z >>= 1)
-    {
+    for (int z = 128; z > 0; z >>= 1) {
         strcat(b, ((x & z) == z) ? "1" : "0");
     }
 
     return b;
-}
+}*/
 
 void printbits(uint32_t n) {
     if (n) {
@@ -630,9 +635,6 @@ static int start(char *file) {
     }
     printf("-----------end of loader ---------------t\n");*/
 
-
-
-
     printf("------------SLOT--------------\n");
 
     while (1) {
@@ -648,37 +650,95 @@ static int start(char *file) {
         uint8_t op = abc.op;
 
         switch (op) {
-            //CONSTANT FUNCTIONS
-             /*case CINT: {
+            //------------------Constant Table Value Operation------------------
+            case CSTR: {
+                uint16_t d = ntohs(ad.d);
+                printf("CSTR: %d %d\n", ad.a, d);
+                slots[ad.a] = (uint64_t)(void*)sec.cstr[d];
+                break;
+            }
+            case CKEY: {
+                uint16_t d = ntohs(ad.d);
+                printf("CKEY: %d %d\n", ad.a, d);
+                slots[ad.a] = (uint64_t)(void*)sec.cstr[d];
+                break;
+            }
+            /*case CINT: {
                 uint16_t d = ntohs(ad.d);
                 printf("CINT: %d %d const: %d\n", ad.a, d, sec->cint[d]);
 
                 slots[ad.a] = sec->cint[d];
-
                 break;
             }*/
-            /*
-            case CFLOAT: {
+            /*case CFLOAT: {
                 int target_slot = ad.a;
                 printf("sec.cfloat[ad.d]: %f\n", swap(sec.cfloat[0]) );
 
                 printf("CFLOAT: %d %d\n", ad.a, ad.d);
                 break;
             }*/
-            //MATH
+            case CTYPE: {
+                uint16_t d = ntohs(ad.d);
+                printf("CTYPE: %d %d\n", ad.a, d);
+                //struct type_record* type = &sec.types[d];
+                //slots[ad.a] = (uint64_t)(void*)type;
+                slots[ad.a] = d;
+                break;
+            }
+            //------------------Constant Value Operation------------------
+            case CBOOL: {
+                uint16_t d = ntohs(ad.d);
+                printf("CBOOL: %d %d\n", ad.a, d);
+                slots[ad.a] = to_bool(d);
+                break;
+            }
+            case CNIL : {
+                printf("CNIL: %d\n", ad.a);
+                slots[ad.a] = get_nil();
+                break;
+            }
+            case CSHORT: {
+                int target_slot = ad.a;
+                uint16_t d16 = ntohs(ad.d);
+                uint64_t d = (uint64_t) d16;
+
+                printf("CSHORT: %d %d\n", ad.a, d16);
+                slots[target_slot] = to_small_int(d);
+                break;
+            }
+            /*case SETF: {
+                int target_slot = ad.a;
+                slots[target_slot] = to_double(3.5);
+                printf("SETF: %d %.2f\n", ad.a, 3.5);
+                break;
+            }*/
+            //------------------Global Table Ops------------------
+            case NSSET: {
+                uint16_t d = ntohs(ad.d);
+                printf("NSSET: %d %d\n", ad.a, d);
+                add_symbol_table_pair(&sec,sec.cstr[d], slots[ad.a] );
+                break;
+            }
+            case NSGET: {
+                uint16_t d = ntohs(ad.d);
+                printf("NSGET: %d %d\n", ad.a, d);
+                slots[ad.a] = get_symbol_table_record(&sec,sec.cstr[d]);
+                break;
+            }
+            //------------------Variable Slots------------------
             case ADDVV: {
                 int target_slot = abc.a;
                 uint64_t bslot = slots[abc.b];
                 uint64_t cslot = slots[abc.c];
                 
-                if ( is_int(bslot) && is_int(cslot) )
-                    slots[target_slot] = to_int(get_int(bslot) + get_int(cslot));
+                if ( is_small_int(bslot) && is_small_int(cslot) )
+                    slots[target_slot] = to_small_int(get_small_int(bslot) + get_small_int(cslot));
                 if ( is_double(bslot) && is_double(cslot) )
                     slots[target_slot] = to_double(get_double(bslot) + get_double(cslot));
-                if ( is_double(bslot) && is_int(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) + get_int(cslot) );
-                if ( is_int(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(cslot) + get_int(bslot) );
+                if ( is_double(bslot) && is_small_int(cslot) )
+                    slots[target_slot] = to_double(get_double(bslot) + get_small_int(cslot) );
+                if ( is_small_int(bslot) && is_double(cslot) )
+                    slots[target_slot] = to_double(get_double(cslot) + get_small_int(bslot) );
 
                 printf("ADDVV: %d %d %d\n", abc.a, abc.b, abc.c);
                 break;
@@ -688,14 +748,14 @@ static int start(char *file) {
                 uint64_t bslot = slots[abc.b];
                 uint64_t cslot = slots[abc.c];
 
-                if ( is_int(bslot) && is_int(cslot) )
-                    slots[target_slot] = to_int(get_int(bslot) - get_int(cslot));
+                if ( is_small_int(bslot) && is_small_int(cslot) )
+                    slots[target_slot] = to_small_int(get_small_int(bslot) - get_small_int(cslot));
                 if ( is_double(bslot) && is_double(cslot) )
                     slots[target_slot] = to_double(get_double(bslot) - get_double(cslot));
-                if ( is_double(bslot) && is_int(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) - get_int(cslot) );
-                if ( is_int(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(cslot) - get_int(bslot) );
+                if ( is_double(bslot) && is_small_int(cslot) )
+                    slots[target_slot] = to_double(get_double(bslot) - get_small_int(cslot) );
+                if ( is_small_int(bslot) && is_double(cslot) )
+                    slots[target_slot] = to_double(get_double(cslot) - get_small_int(bslot) );
 
                 printf("SUBVV: %d %d %d\n", abc.a, abc.b, abc.c);
                 break;
@@ -705,14 +765,14 @@ static int start(char *file) {
                 uint64_t bslot = slots[abc.b];
                 uint64_t cslot = slots[abc.c];
 
-                if ( is_int(bslot) && is_int(cslot) )
-                    slots[target_slot] = to_int(get_int(bslot) * get_int(cslot));
+                if ( is_small_int(bslot) && is_small_int(cslot) )
+                    slots[target_slot] = to_small_int(get_small_int(bslot) * get_small_int(cslot));
                 if ( is_double(bslot) && is_double(cslot) )
                     slots[target_slot] = to_double(get_double(bslot) * get_double(cslot));
-                if ( is_double(bslot) && is_int(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) * get_int(cslot) );
-                if ( is_int(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(cslot) * get_int(bslot) );
+                if ( is_double(bslot) && is_small_int(cslot) )
+                    slots[target_slot] = to_double(get_double(bslot) * get_small_int(cslot) );
+                if ( is_small_int(bslot) && is_double(cslot) )
+                    slots[target_slot] = to_double(get_double(cslot) * get_small_int(bslot) );
 
                 printf("MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
                 break;
@@ -723,15 +783,14 @@ static int start(char *file) {
                 uint64_t bslot = slots[abc.b];
                 uint64_t cslot = slots[abc.c];
 
-                if ( is_int(bslot) && is_int(cslot) ) {
-                    slots[target_slot] = to_int(get_int(bslot) % get_int(cslot));                
+                if ( is_small_int(bslot) && is_small_int(cslot) ) {
+                    slots[target_slot] = to_small_int(get_small_int(bslot) % get_small_int(cslot));
                 } else {
                     printf("Type Error. Called Modulo with Float");
                     return 0;
                 }
 
                 slots[target_slot] =  slots[abc.b] % slots[abc.c];
-
                 break;
             }
             case DIVVV: {
@@ -741,60 +800,96 @@ static int start(char *file) {
                 uint64_t bslot = slots[abc.b];
                 uint64_t cslot = slots[abc.c];
 
-                if ( is_int(bslot) && is_int(cslot) )
-                    slots[target_slot] = to_int(get_int(bslot) / get_int(cslot));
+                if ( is_small_int(bslot) && is_small_int(cslot) )
+                    slots[target_slot] = to_small_int(get_small_int(bslot) / get_small_int(cslot));
 
                 if ( is_double(bslot) && is_double(cslot) )
                     slots[target_slot] = to_double(get_double(bslot) / get_double(cslot));
 
-                if ( is_double(bslot) && is_int(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) / get_int(cslot) );
+                if ( is_double(bslot) && is_small_int(cslot) )
+                    slots[target_slot] = to_double(get_double(bslot) / get_small_int(cslot) );
 
-                if ( is_int(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(cslot) / get_int(bslot) );
+                if ( is_small_int(bslot) && is_double(cslot) )
+                    slots[target_slot] = to_double(get_double(cslot) / get_small_int(bslot) );
                 break;
             }
-            //EQUALITY
             case ISEQ: {
                 printf("ISEQ: %d %d %d\n", abc.a, abc.b, abc.c);
                 int target_slot = abc.a;
                 uint64_t bslot = slots[abc.b];
                 uint64_t cslot = slots[abc.c];
 
-                if ( is_int(bslot) && is_int(cslot) ) {
-                    slots[target_slot] = (get_int(bslot) == get_int(cslot));
+                if ( is_small_int(bslot) && is_small_int(cslot) ) {
+                    slots[target_slot] = (get_small_int(bslot) == get_small_int(cslot));
                     break;
                 }
                 if ( is_double(bslot) && is_double(cslot) ) {
-                    slots[target_slot] = to_int(get_double(bslot) == get_double(cslot));
+                    slots[target_slot] = to_small_int(get_double(bslot) == get_double(cslot));
                     break;
                 }
                 printf("Type Error ISEQ can only called with all Ints or all Double");
                 return 1;      
 
             }
-            //SET and MOVE
+            //------------------Unary Ops------------------
             case MOV: {
-                int target_slot = ad.a;
-                 slots[target_slot] = slots[ad.d];
-                 printf("MOV: %d %d\n", ad.a, ad.d);
-                 break;
-            }            
-            case CSHORT: {
-                int target_slot = ad.a;
-                uint16_t d16 = ntohs(ad.d);
-                uint64_t d = (uint64_t) d16;
+                uint8_t target_slot = ad.a;
+                uint16_t d = ntohs(ad.d);
 
-                printf("CSHORT: %d %d\n", ad.a, d16);
-                slots[target_slot] = to_int(d);
+                slots[target_slot] = slots[d];
+                printf("MOV: %d %d\n",target_slot, d);
                 break;
             }
-            case SETF: {
-                int target_slot = ad.a;
-                slots[target_slot] = to_double( 3.5  );
-                printf("SETF: %d %.2f\n", ad.a, 3.5);
-                break;                
+            case NOT: {
+                printf("NOT // not implmented\n");
+                break;
             }
+            //------------------Jumps------------------
+            case JUMP: {
+                uint16_t d = ntohs(ad.d);
+                printf("JUMP: %d\n",d);
+                int16_t offset = (int16_t) d;
+                uint32_t new_pc = pc + offset;
+                pc = new_pc;
+                break;
+            }
+            case JUMPF: {
+                uint16_t d = ntohs(ad.d);
+                int16_t offset = (int16_t) d;
+                printf("JUMPF: %d %d\n",ad.a,offset);
+
+                if(!get_bool(slots[ad.a])) {
+                    pc = pc + offset;
+                }
+                break;
+            }
+            case JUMPT: {
+                uint16_t d = ntohs(ad.d);
+                int16_t offset = (int16_t) d;
+                printf("JUMPT: %d %d\n",ad.a,offset);
+
+                if(get_bool(slots[ad.a])) {
+                    pc = pc + offset;
+                }
+                break;
+            }
+            //------------------Function Calls------------------
+            case CALL: {
+                printf("CALL // not implmented\n"); break;
+            }
+            case RET: {
+                printf("RET // not implmented\n"); break;
+            }
+            case APPLY: {
+                printf("APPLY // not implmented\n"); break;
+            }
+            //------------------Closures and Free Variables------------------
+            case FNEW: { printf("FNEW // not implmented\n"); break; }
+            case VFNEW: { printf("VFNEW // not implmented\n"); break; }
+            case GETFREEVAR: { printf("GETFREEVAR // not implmented\n");  break; }
+            case UCLO: { printf("UCLO // not implmented\n"); break; }
+            //------------------Tail Recursion and Loops------------------
+            case LOOP: { printf("LOOP\n"); break; }
             case BULKMOV: {
                 for(int i = 0; i != abc.c ;i++ ) {
                     slots[abc.a+i] = slots[abc.b+i];
@@ -802,27 +897,41 @@ static int start(char *file) {
                 printf("BULKMOV: %d %d %d\n", abc.a, abc.b, abc.c);
                 break;
             }
-            //Object stuff
+            //------------------Arrays------------------
+            case NEWARRAY:{
+                printf("NEWARRAY // not implmented\n");
+                break;
+            }
+            case GETARRAY:{
+                printf("GETARRAY // not implmented\n");
+                break;
+            }
+            case SETARRAY:{
+                printf("SETARRAY // not implmented\n");
+                break;
+            }
+
+            //------------------Function Def------------------
+            case FUNCF:{ printf("FUNCF\n"); break; }
+            case FUNCV:{ printf("FUNCV\n"); break; }
+            //------------------Types------------------
             case ALLOC: {
-                printf("ALLOC: %d %d\n",ad.a, ad.d);
+                uint16_t d = ntohs(ad.d);
+                printf("ALLOC: %d %d\n",ad.a,d);
                 int target_slot = ad.a;
-                uint16_t clj_type = ad.d;
-                
-                res = rust_mps_alloc_obj((mps_addr_t *) (void *) &slots[target_slot],
+
+                struct type_record type = sec.types[d];
+
+                res = rust_mps_alloc_obj((mps_addr_t*)(void*)&slots[target_slot],
                                          obj_ap,
-                                         16, // 64/8=8 for header   64/8=8 for slots
-                                         clj_type,
+                                         type.type_size,
+                                         type.type_id,
                                          OBJ_MPS_TYPE_OBJECT);
-                 if (res != MPS_RES_OK) printf("Could't not allocate obj");
-
-
+                 if (res != MPS_RES_OK) printf("Could't not allocate obj\n");
                  break;
             }
-            //    OP        A    B            C
-            //    SETFIELD  ref  offset(lit)  var
             case SETFIELD: {
-                 printf("SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c); 
-
+                 printf("SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
                  int offset = abc.b;
                  int var_index = abc.c;
                  int ref_index = abc.a;
@@ -831,73 +940,36 @@ static int start(char *file) {
 
                  struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
                  obj->ref[offset] = (uint64_t *) slots[var_index];
-
                  break;
             }
-            //OP        A    B     C
-            //GETFIELD  dst  ref   offset(lit)
             case GETFIELD: {
                 printf("GETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
-
-                int dst = abc.a;        
+                int dst = abc.a;
                 int offset = abc.c;
-                            
+
                 uint64_t* header_ptr = (uint64_t*) slots[abc.b];
                 struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
 
-         
                 slots[dst] = (uintptr_t) (void *) obj->ref[offset];
                 break;
             }
-            //JUMP
-            case JUMP: {
-                int offset = (int16_t) ad.d;
-                int new_pc = pc + offset;
-                pc = new_pc;
-                printf("JUMP: %d\n",ad.d);
+            //------------------Run-Time Behavior------------------
+            case BREAK:  {
+                printf("BREAK // not implmented\n");
                 break;
             }
-            case JUMPF: {
-                int boolslot = ad.a;
-                if(slots[boolslot] == 0) {
-                    int offset = (int16_t) ad.d;
-                    pc = pc + offset;
-                }
-                printf("JUMPF: %d %d\n", ad.a, (int16_t)ad.d);
-                break;
-            }            
-            case JUMPT: {
-                int boolslot = ad.a;
-                if(slots[boolslot] == 1) {
-                    int offset = (int16_t) ad.d;
-                    pc = pc + offset;
-                }
-                printf("JUMPT: %d %d\n", ad.a,  (int16_t) ad.d);
-                break;
+            case EXIT: {
+                printf("Valid End Reached\n");
+                return 1;
             }
-            //NSSETS   var     const-str  ->  ns[const-str] = var
-            case NSSET: {
-                uint16_t d = ntohs(ad.d);
-                printf("NSSET: %d %d\n", ad.a, d);
-                add_symbol_table_pair(&sec,sec.cstr[d], slots[ad.a] );
-                break;
+            case DROP: {
+                printf("DROP // not implmented\n");
             }
-            //NSGETS   dst     const-str  ->  dst = ns[const-str]
-            case NSGET: {
-                uint16_t d = ntohs(ad.d);
-                printf("NSGET: %d %d\n", ad.a, d);
-                slots[ad.a] = get_symbol_table_record(&sec,sec.cstr[d]);
-                break;
+            case TRANC: {
+                printf("TRANC // not implmented\n");
             }
-            case LOOP: { break; }
-            case FUNCF:  { break; }
-            case FUNCV:  { break; }
-            case EXIT: { 
-                        printf("Valid End Reached\n");
-                        return 1;
-                        }
             default: {
-                printf("\nskipping instruction: %d\n\n", op);
+                printf("skipping instruction: %d\n\n", op);
                 break;
             }
 

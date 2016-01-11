@@ -230,12 +230,12 @@ int parse(uint8_t *buf, struct sections *sec)
             sec->types = NULL;
             sec->types_cnt = cnt;
             for(int j = 0;j < cnt; j++) {
-              uint32_t t_id = ntohl(*section_data_ptr);
-              uint32_t type_size = ntohl(*(section_data_ptr + 1));
+              uint32_t t_id = ntohl(*(section_data_ptr + 1));
+              uint32_t type_size = ntohl(*section_data_ptr);
               printf("type_id: %d type_size: %d\n", t_id, type_size);
               struct type_record *record = malloc(sizeof(struct type_record));
               record->type_id = t_id;
-              record->type_size = type_size;
+              record->type_size = (type_size * 8) + 8;
               add_type_record(sec,record);
               section_data_ptr = section_data_ptr + 2;
             }
