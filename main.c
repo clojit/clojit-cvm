@@ -226,7 +226,12 @@ static mps_gen_param_s obj_gen_params[] = {
   { 170, 0.45 }
 };
 
-/*{
+/*
+#ifndef MAXIMUM_HEAP_SIZE
+#define MAXIMUM_HEAP_SIZE (512 * 1024 * 1024)
+#endif
+
+{
   { 8 * 1024, 0.45 },
   { MAXIMUM_HEAP_SIZE/1024 - 8 * 1024, 0.99 }
 };*/
