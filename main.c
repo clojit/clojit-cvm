@@ -11,7 +11,10 @@
 #include "mpscamc.h"
 #include "uthash.h"
 #include "loader.h"
+#include "stack.h"
 
+
+////////////////////////////// MEMORY MANAGEMENT //////////////////////////////
 
 #define WORD_SIZE   sizeof(uint64_t)
 #define ALIGNMENT   WORD_SIZE
@@ -61,6 +64,17 @@ bool is_double(uint64_t slot);
 bool is_nil(uint64_t slot);
 
 bool is_pointer(uint64_t slot);
+
+
+// ---------------- Type Function ----------------
+uint64_t to_type(uint16_t type);
+bool is_type(uint64_t slot);
+uint16_t get_type(uint64_t slot);
+// ---------------- FNEW Function  ----------------
+uint64_t to_fnew(int16_t offset);
+bool is_fnew(uint64_t slot);
+int16_t get_fnew(uint64_t slot);
+
 
 mps_res_t rust_mps_alloc_obj(mps_addr_t *addr_o,
                              mps_ap_t ap,
@@ -173,8 +187,14 @@ static mps_arena_t arena;       /* the arena */
 static mps_pool_t obj_pool;     /* pool for ordinary Scheme objects */
 static mps_ap_t obj_ap;         /* allocation point used to allocate objects */
 
+
+/////////////////////// Virtual Maschine Data ///////////////////////
+
 static uint64_t slots[100] = {0};
 static uint32_t pc = 0;
+static Stack stack;
+
+/////////////////////////////////////////////////////////////////////
 
 typedef uint32_t instr;
 
@@ -197,6 +217,8 @@ const uint16_t TAG_POINTER_LO    = 0x0000;
 const uint16_t TAG_POINTER_HI    = 0xFFFF;
 const uint16_t TAG_SMALL_INTEGER = 0xFFFE;
 const uint16_t TAG_BOOL          = 0xFFFD;
+const uint16_t TAG_TYPE          = 0xFFFC;
+const uint16_t TAG_FNEW          = 0xFFFB;
 
 union slot {
     double dbl;
@@ -270,7 +292,43 @@ uint64_t to_double(double num) {
     return invert_non_negative(bits.raw);
 }
 
-//Int Function
+
+// ---------------- Type Function ----------------
+
+uint64_t to_type(uint16_t type) {
+    uint64_t int0 = ((uint64_t) TAG_TYPE) << 48;
+    uint64_t result = int0 | type;
+    return result;
+}
+
+bool is_type(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_TYPE;
+}
+
+uint16_t get_type(uint64_t slot) {
+    return (slot & 0xFFFFFFFF);
+}
+
+// ---------------- FNEW Function  ----------------
+
+uint64_t to_fnew(int16_t offset) {
+    uint64_t fnew = ((uint64_t) TAG_FNEW) << 48;
+    uint64_t result = fnew | offset;
+    return result;
+}
+
+bool is_fnew(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_FNEW;
+}
+
+int16_t get_fnew(uint64_t slot) {
+    return (slot & 0xFFFFFFFF);
+}
+
+
+// ---------------- Int Function ----------------
 
 bool is_small_int(uint64_t slot) {
     uint16_t t = tag(slot);
@@ -570,10 +628,18 @@ void printbits(uint32_t n) {
     }
 }
 
+void set_context(Context* ctx) {
+    pc = ctx->pc;
+}
+
 
 static int start(char *file) {
 
+    //push(&stack, inital);
+    //inital = pop(&stack);
+
     struct sections sec = {0};
+    stack_init(&stack);
 
     mps_res_t res;
     mps_root_t root_o;
@@ -885,7 +951,28 @@ static int start(char *file) {
             }
             //------------------Function Calls------------------
             case CALL: {
-                printf("CALL // not implmented\n"); break;
+                uint8_t base = ad.a;
+                uint16_t lit = ntohs(ad.d);
+
+                printf("CALL %d %d\n", base, lit);
+
+                slots[base] = lit;
+
+                uint64_t fn_slot = slots[base+1];
+
+                uint16_t func = 0;
+                if(is_fnew(fn_slot))
+                    func = get_fnew(fn_slot);
+                else
+                    printf("CALL ERROR NO FUNC");
+
+                Context old = { .pc = pc, .ip = 0 };
+                push(&stack, old);
+
+                uint32_t new_pc = pc + base;
+
+                pc = 0;
+                break;
             }
             case RET: {
                 printf("RET // not implmented\n"); break;
@@ -894,7 +981,20 @@ static int start(char *file) {
                 printf("APPLY // not implmented\n"); break;
             }
             //------------------Closures and Free Variables------------------
-            case FNEW: { printf("FNEW // not implmented\n"); break; }
+            case FNEW: {
+
+                uint16_t d = ntohs(ad.d);
+                int16_t offset = (int16_t) d;
+                printf("FNEW %d %d\n", d, offset);
+                uint64_t testslot = to_fnew(offset);
+
+                //int16_t i = get_fnew(testslot);
+
+                //printf("i %d\n", i);
+
+                //slots[ad.a] = to_fnew(offset);
+                break;
+            }
             case VFNEW: { printf("VFNEW // not implmented\n"); break; }
             case GETFREEVAR: { printf("GETFREEVAR // not implmented\n");  break; }
             case UCLO: { printf("UCLO // not implmented\n"); break; }
@@ -982,13 +1082,12 @@ static int start(char *file) {
                 printf("skipping instruction: %d\n\n", op);
                 break;
             }
-
         }
         pc++;
-
         print_slots(slots,10);
-
     }
+
+    stack_free(&stack);
 
     return 0;
 }

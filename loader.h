@@ -23,6 +23,11 @@ struct symbol_table_record {
     UT_hash_handle hh;         /* makes this structure hashable */
 };
 
+struct context {
+    uint32_t pc;
+    uint32_t ip;
+};
+
 struct sections {
 	instr *instr;
 	size_t instr_cnt;
