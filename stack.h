@@ -4,7 +4,7 @@
 #define STACK_INITIAL_CAPACITY 10
 
 typedef struct {
-    uint32_t pc;
+    uint32_t base_slot;
     uint32_t ip;
 } Context;
 

@@ -102,6 +102,13 @@ uint64_t get_symbol_table_record(struct sections* section, char* key);
 
 ////////////////////////////////////////////////////////////
 
+////////////////////////// VM //////////////////////////////
+
+void set_context(Context* ctx);
+Context get_context();
+////////////////////////////////////////////////////////////
+
+
 
 ///////////////////////// SYMBOL TABLE //////////////////////////////
 
@@ -192,6 +199,8 @@ static mps_ap_t obj_ap;         /* allocation point used to allocate objects */
 
 static uint64_t slots[100] = {0};
 static uint32_t pc = 0;
+static uint32_t ip = 0;
+static uint32_t base_slot = 0;
 static Stack stack;
 
 /////////////////////////////////////////////////////////////////////
@@ -558,20 +567,29 @@ void print_slot (uint64_t slot) {
     if( is_small_int(slot) ) {
         printf("i%d ", get_small_int( slot )  );
         //printf(" is int\n");
+        return;
     }
 
     if( is_double(slot) ) {
         //printf(" is double\n");
         printf("f%.2f ", get_double( slot ) );
+        return;
     }
 
     if( is_nil( slot ) ) {
         //printf(" is nil\n");
         printf("n0 ");
+        return;
+    }
+
+    if( is_fnew(slot) ) {
+        printf("fn%d ", get_fnew(slot));
+        return;
     }
 
     if( is_pointer( slot ) ) {
-        //printf(" is is_pointer\n");
+        printf("P ");
+        /*
         uint64_t* header_ptr = (uint64_t*) slot;
 
         struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
@@ -586,19 +604,17 @@ void print_slot (uint64_t slot) {
             print_slot( (uintptr_t) (void *) obj->ref[i]);
         }
 
-        printf(") ");
+        printf(") ");*/
+        return;
     }
+    printf("-");
 }
 
 void print_slots(uint64_t* pslots ,int size) {
-
     int i = 0;
 
     printf("Slots: ");
     while (1) {
-
-        //printf("slots[%i]: %016"PRIx64"\n", i,  (uint64_t) slots[i] );
-
         print_slot(pslots[i]);
 
         i++;
@@ -629,14 +645,16 @@ void printbits(uint32_t n) {
 }
 
 void set_context(Context* ctx) {
-    pc = ctx->pc;
+    base_slot = ctx->base_slot;
+    ip = ctx->ip;
 }
 
+Context get_context() {
+    Context old = { .base_slot = base_slot, .ip = ip };
+    return old;
+}
 
 static int start(char *file) {
-
-    //push(&stack, inital);
-    //inital = pop(&stack);
 
     struct sections sec = {0};
     stack_init(&stack);
@@ -715,7 +733,6 @@ static int start(char *file) {
 
     while (1) {
         instr inst = sec.instr[pc];
-
         //printf("------------INSTURCTION --------------\n");
         //printbits( ntohl(inst) );
         //printf("\n");
@@ -730,20 +747,26 @@ static int start(char *file) {
             case CSTR: {
                 uint16_t d = ntohs(ad.d);
                 printf("CSTR: %d %d\n", ad.a, d);
-                slots[ad.a] = (uint64_t)(void*)sec.cstr[d];
+
+                slots[base_slot + ad.a] = (uint64_t)(void*)sec.cstr[d];
+
+                //printf("slots[%i]: %016"PRIx64"\n", ad.a,  (uint64_t) slots[ad.a] );
+
+                pc++;
                 break;
             }
             case CKEY: {
                 uint16_t d = ntohs(ad.d);
                 printf("CKEY: %d %d\n", ad.a, d);
-                slots[ad.a] = (uint64_t)(void*)sec.cstr[d];
+                slots[base_slot + ad.a] = (uint64_t)(void*)sec.cstr[d];
+                pc++;
                 break;
             }
             /*case CINT: {
                 uint16_t d = ntohs(ad.d);
                 printf("CINT: %d %d const: %d\n", ad.a, d, sec->cint[d]);
 
-                slots[ad.a] = sec->cint[d];
+                slots[base + ad.a] = sec->cint[d];
                 break;
             }*/
             /*case CFLOAT: {
@@ -757,20 +780,24 @@ static int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("CTYPE: %d %d\n", ad.a, d);
                 //struct type_record* type = &sec.types[d];
-                //slots[ad.a] = (uint64_t)(void*)type;
-                slots[ad.a] = d;
+                //slots[base + ad.a] = (uint64_t)(void*)type;
+                slots[base_slot + ad.a] = d;
+                pc++;
                 break;
             }
             //------------------Constant Value Operation------------------
             case CBOOL: {
                 uint16_t d = ntohs(ad.d);
                 printf("CBOOL: %d %d\n", ad.a, d);
-                slots[ad.a] = to_bool(d);
+                slots[base_slot + ad.a] = to_bool(d);
+                pc++;
                 break;
             }
             case CNIL : {
                 printf("CNIL: %d\n", ad.a);
                 slots[ad.a] = get_nil();
+
+                pc++;
                 break;
             }
             case CSHORT: {
@@ -780,6 +807,8 @@ static int start(char *file) {
 
                 printf("CSHORT: %d %d\n", ad.a, d16);
                 slots[target_slot] = to_small_int(d);
+
+                pc++;
                 break;
             }
             /*case SETF: {
@@ -793,12 +822,14 @@ static int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("NSSET: %d %d\n", ad.a, d);
                 add_symbol_table_pair(&sec,sec.cstr[d], slots[ad.a] );
+                pc++;
                 break;
             }
             case NSGET: {
                 uint16_t d = ntohs(ad.d);
                 printf("NSGET: %d %d\n", ad.a, d);
                 slots[ad.a] = get_symbol_table_record(&sec,sec.cstr[d]);
+                pc++;
                 break;
             }
             //------------------Variable Slots------------------
@@ -817,6 +848,7 @@ static int start(char *file) {
                     slots[target_slot] = to_double(get_double(cslot) + get_small_int(bslot) );
 
                 printf("ADDVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                pc++;
                 break;
             }
             case SUBVV: {
@@ -834,6 +866,7 @@ static int start(char *file) {
                     slots[target_slot] = to_double(get_double(cslot) - get_small_int(bslot) );
 
                 printf("SUBVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                pc++;
                 break;
             }
             case MULVV: {
@@ -851,6 +884,7 @@ static int start(char *file) {
                     slots[target_slot] = to_double(get_double(cslot) * get_small_int(bslot) );
 
                 printf("MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                pc++;
                 break;
             }
             case MODVV: {
@@ -867,6 +901,8 @@ static int start(char *file) {
                 }
 
                 slots[target_slot] =  slots[abc.b] % slots[abc.c];
+
+                pc++;
                 break;
             }
             case DIVVV: {
@@ -887,6 +923,8 @@ static int start(char *file) {
 
                 if ( is_small_int(bslot) && is_double(cslot) )
                     slots[target_slot] = to_double(get_double(cslot) / get_small_int(bslot) );
+
+                pc++;
                 break;
             }
             case ISEQ: {
@@ -894,6 +932,8 @@ static int start(char *file) {
                 int target_slot = abc.a;
                 uint64_t bslot = slots[abc.b];
                 uint64_t cslot = slots[abc.c];
+
+                pc++;
 
                 if ( is_small_int(bslot) && is_small_int(cslot) ) {
                     slots[target_slot] = (get_small_int(bslot) == get_small_int(cslot));
@@ -903,6 +943,7 @@ static int start(char *file) {
                     slots[target_slot] = to_small_int(get_double(bslot) == get_double(cslot));
                     break;
                 }
+
                 printf("Type Error ISEQ can only called with all Ints or all Double");
                 return 1;      
 
@@ -914,10 +955,13 @@ static int start(char *file) {
 
                 slots[target_slot] = slots[d];
                 printf("MOV: %d %d\n",target_slot, d);
+
+                pc++;
                 break;
             }
             case NOT: {
                 printf("NOT // not implmented\n");
+                pc++;
                 break;
             }
             //------------------Jumps------------------
@@ -927,6 +971,8 @@ static int start(char *file) {
                 int16_t offset = (int16_t) d;
                 uint32_t new_pc = pc + offset;
                 pc = new_pc;
+
+                pc++;
                 break;
             }
             case JUMPF: {
@@ -951,53 +997,97 @@ static int start(char *file) {
             }
             //------------------Function Calls------------------
             case CALL: {
-                uint8_t base = ad.a;
+                uint8_t localbase = ad.a;
                 uint16_t lit = ntohs(ad.d);
 
-                printf("CALL %d %d\n", base, lit);
+                printf("CALL %d %d\n", localbase, lit);
 
-                slots[base] = lit;
+                slots[base_slot + localbase] = to_small_int(pc);
 
-                uint64_t fn_slot = slots[base+1];
+                uint64_t fn_slot = slots[base_slot + localbase + 1];
 
                 uint16_t func = 0;
                 if(is_fnew(fn_slot))
                     func = get_fnew(fn_slot);
                 else
-                    printf("CALL ERROR NO FUNC");
+                    printf("CALL ERROR NO FUNC\n");
 
-                Context old = { .pc = pc, .ip = 0 };
+                //printf("func: %d\n", func);
+
+                //printf("old pc: %d\n", pc);
+                //printf("old ip: %d\n", ip);
+                //printf("base: %d\n", base);
+
+
+                Context old = get_context();
                 push(&stack, old);
 
-                uint32_t new_pc = pc + base;
+                uint32_t newbase = base_slot + localbase;
 
-                pc = 0;
+                //printf("new_pc: %d\n", new_pc);
+                //printf("ip: %d\n", func);
+
+                printf("old base: %d", base_slot);
+                printf(" old ip: %d\n", ip);
+
+                Context newContext = { .base_slot = newbase, .ip = func };
+                set_context(&newContext);
+
+                printf("new base: %d", newbase);
+                printf(" new ip: %d\n", func);
+
+                pc = ip;
+
+                //printf("pc: %d\n", pc);
+                //printf("ip: %d\n", ip);
+
                 break;
             }
             case RET: {
-                printf("RET // not implmented\n"); break;
+                uint8_t a = ad.a;
+                printf("RET %d\n", a);
+
+                uint32_t ret_addr = get_small_int(slots[base_slot]);
+
+                 printf("ret_addr %d\n", ret_addr);
+
+                slots[base_slot] = slots[base_slot+a];
+
+                printf("base %d", base_slot);
+                printf(" ip %d\n", ip);
+
+                Context caller = pop(&stack);
+                set_context(&caller);
+
+                printf("base %d", base_slot);
+                printf(" ip %d\n", ip);
+
+                pc = ret_addr + 1;
+                break;
             }
             case APPLY: {
-                printf("APPLY // not implmented\n"); break;
+                printf("APPLY // not implmented\n");
+                pc++;
+                break;
             }
             //------------------Closures and Free Variables------------------
             case FNEW: {
 
+                //Once Closure are added, it needs to check if it is inside of a closure
+
                 uint16_t d = ntohs(ad.d);
                 int16_t offset = (int16_t) d;
+
                 printf("FNEW %d %d\n", d, offset);
-                uint64_t testslot = to_fnew(offset);
 
-                //int16_t i = get_fnew(testslot);
+                slots[ad.a] = to_fnew(offset);
 
-                //printf("i %d\n", i);
-
-                //slots[ad.a] = to_fnew(offset);
+                pc++;
                 break;
             }
-            case VFNEW: { printf("VFNEW // not implmented\n"); break; }
-            case GETFREEVAR: { printf("GETFREEVAR // not implmented\n");  break; }
-            case UCLO: { printf("UCLO // not implmented\n"); break; }
+            case VFNEW: { printf("VFNEW // not implmented\n"); pc++; break; }
+            case GETFREEVAR: { printf("GETFREEVAR // not implmented\n"); pc++; break; }
+            case UCLO: { printf("UCLO // not implmented\n"); pc++; break; }
             //------------------Tail Recursion and Loops------------------
             case LOOP: { printf("LOOP\n"); break; }
             case BULKMOV: {
@@ -1005,25 +1095,29 @@ static int start(char *file) {
                     slots[abc.a+i] = slots[abc.b+i];
                 }
                 printf("BULKMOV: %d %d %d\n", abc.a, abc.b, abc.c);
+                pc++;
                 break;
             }
             //------------------Arrays------------------
             case NEWARRAY:{
                 printf("NEWARRAY // not implmented\n");
+                pc++;
                 break;
             }
             case GETARRAY:{
                 printf("GETARRAY // not implmented\n");
+                pc++;
                 break;
             }
             case SETARRAY:{
                 printf("SETARRAY // not implmented\n");
+                pc++;
                 break;
             }
 
             //------------------Function Def------------------
-            case FUNCF:{ printf("FUNCF\n"); break; }
-            case FUNCV:{ printf("FUNCV\n"); break; }
+            case FUNCF:{ printf("FUNCF\n"); pc++; break; }
+            case FUNCV:{ printf("FUNCV\n"); pc++; break; }
             //------------------Types------------------
             case ALLOC: {
                 uint16_t d = ntohs(ad.d);
@@ -1038,6 +1132,8 @@ static int start(char *file) {
                                          type.type_id,
                                          OBJ_MPS_TYPE_OBJECT);
                  if (res != MPS_RES_OK) printf("Could't not allocate obj\n");
+
+                 pc++;
                  break;
             }
             case SETFIELD: {
@@ -1050,6 +1146,8 @@ static int start(char *file) {
 
                  struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
                  obj->ref[offset] = (uint64_t *) slots[var_index];
+
+                 pc++;
                  break;
             }
             case GETFIELD: {
@@ -1061,29 +1159,37 @@ static int start(char *file) {
                 struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
 
                 slots[dst] = (uintptr_t) (void *) obj->ref[offset];
+
+                pc++;
                 break;
             }
             //------------------Run-Time Behavior------------------
             case BREAK:  {
                 printf("BREAK // not implmented\n");
+                pc++;
                 break;
             }
             case EXIT: {
                 printf("Valid End Reached\n");
+                pc++;
                 return 1;
             }
             case DROP: {
                 printf("DROP // not implmented\n");
+                pc++;
+                break;
             }
             case TRANC: {
                 printf("TRANC // not implmented\n");
+                pc++;
+                break;
             }
             default: {
                 printf("skipping instruction: %d\n\n", op);
+                pc++;
                 break;
             }
         }
-        pc++;
         print_slots(slots,10);
     }
 
