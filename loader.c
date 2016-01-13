@@ -252,11 +252,11 @@ int parse(uint8_t *buf, struct sections *sec)
 		}
 	}
 
-    /*printf("-----------end of loader ---------------t\n");
+    printf("-----------end of loader ---------------t\n");
     for(int j = 0;j < 2; j++) {
-        printf("float[%d]: %p\n",j, sec->cfloat + j);
+        printf("float[%d]: %p\n",j, (void *) (sec->cfloat + j) );
     }
-    printf("-----------end of loader ---------------t\n");*/
+    printf("-----------end of loader ---------------t\n\n");
 
 	return 0;
 }

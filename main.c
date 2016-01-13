@@ -77,7 +77,7 @@ uint64_t to_fnew(int16_t offset);
 bool is_fnew(uint64_t slot);
 int16_t get_fnew(uint64_t slot);
 
-//  ----------------  CONTEXT  ---------------- 
+//  ----------------  CONTEXT  ----------------
 void set_context(Context* ctx);
 Context get_context();
 
@@ -575,27 +575,29 @@ void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt) {
 
 void print_slot (uint64_t slot) {
     if( is_small_int(slot) ) {
-        printf("i%d ", get_small_int(slot));
+        printf("i%d \n", get_small_int(slot));
         return;
     }
 
+
     if( is_double(slot) ) {
-        printf("f%.2f ", get_double(slot));
+        printf(" is double: \n");
+        printf("f%.2f \n", get_double(slot));
         return;
     }
 
     if(is_nil(slot)) {
-        printf("n0 ");
+        printf("nil \n");
         return;
     }
 
     if(is_fnew(slot)) {
-        printf("fn%d ", get_fnew(slot));
+        printf("fn%d \n", get_fnew(slot));
         return;
     }
 
     if(is_pointer(slot)) {
-        printf("P ");
+        printf("P \n");
         /*
         uint64_t* header_ptr = (uint64_t*) slot;
 
@@ -622,8 +624,9 @@ void print_slot (uint64_t slot) {
 void print_slots(uint64_t* pslots ,int size) {
     int i = 0;
 
-    printf("Slots: ");
+    printf("Slots: \n");
     while (1) {
+        printf("i:%d",i);
         print_slot(pslots[i]);
 
         i++;
@@ -657,7 +660,38 @@ Context get_context() {
 // ------------------------- True Evaluation ------------------------
 
 
+
 static int start(char *file) {
+
+    double f = 4.5;
+
+    if(f == get_double(to_double(f))) {
+        printf("f is the same");
+    } else {
+        printf("f is different");
+    }
+    return 0;
+}
+
+// RESULT:
+/*
+=================================================================
+==12200==ERROR: AddressSanitizer: SEGV on unknown address 0x000000000000 (pc 0x0000004023f2 bp 0x7ffc932e3690 sp 0x7ffc932e3520 T0)
+    #0 0x4023f1 in get_double /home/nick/alltech/clojit/clojit-cvm/main.c:287
+    #1 0x4023f1 in start /home/nick/alltech/clojit/clojit-cvm/main.c:668
+    #2 0x4023f1 in main /home/nick/alltech/clojit/clojit-cvm/main.c:1264
+    #3 0x7f43c90d960f in __libc_start_main (/usr/lib/libc.so.6+0x2060f)
+    #4 0x402658 in _start (/home/nick/alltech/clojit/clojit-cvm/main+0x402658)
+
+AddressSanitizer can not provide additional info.
+SUMMARY: AddressSanitizer: SEGV /home/nick/alltech/clojit/clojit-cvm/main.c:287 get_double
+==12200==ABORTING
+*/
+
+
+
+
+static int start2(char *file) {
 
     struct sections sec = {0};
     stack_init(&stack);
@@ -726,11 +760,11 @@ static int start(char *file) {
 
     sec.symbol_table = NULL;
 
-    /*printf("-----------end of loader ---------------t\n");
+    printf("----------- main float ---------------t\n");
     for(int j = 0;j < 2; j++) {
-        printf("float[%d]: %p\n",j, sec.cfloat + j );
+        printf("float[%d]: %p\n",j, (void*) (sec.cfloat + j) );
     }
-    printf("-----------end of loader ---------------t\n");*/
+    printf("----------- end main float  ---------------t\n\n");
 
     printf("------------SLOT--------------\n");
 
@@ -772,13 +806,17 @@ static int start(char *file) {
                 slots[base + ad.a] = sec->cint[d];
                 break;
             }*/
-            /*case CFLOAT: {
-                int target_slot = ad.a;
-                printf("sec.cfloat[ad.d]: %f\n", swap(sec.cfloat[0]) );
+            case CFLOAT: {
+                uint16_t d = ntohs(ad.d);
+                double cst = swap(sec.cfloat[d]);
+                printf("CFLOAT: %d %f\n", ad.a, cst);
 
-                printf("CFLOAT: %d %d\n", ad.a, ad.d);
+                int target_slot = base_slot + ad.a;
+
+                slots[target_slot] = to_double(cst);
+                pc++;
                 break;
-            }*/
+            }
             case CTYPE: {
                 uint16_t d = ntohs(ad.d);
                 printf("CTYPE: %d %d\n", ad.a, d);
