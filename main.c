@@ -56,6 +56,8 @@ uint64_t to_small_int(int32_t num);
 bool is_bool(uint64_t slot);
 bool get_bool(uint64_t slot);
 uint64_t to_bool(bool value);
+bool is_falsy(uint64_t slot);
+bool is_truthy(uint64_t slot);
 
 double get_double(uint64_t slot);
 uint64_t to_double(double num);
@@ -74,6 +76,10 @@ uint16_t get_type(uint64_t slot);
 uint64_t to_fnew(int16_t offset);
 bool is_fnew(uint64_t slot);
 int16_t get_fnew(uint64_t slot);
+
+//  ----------------  CONTEXT  ---------------- 
+void set_context(Context* ctx);
+Context get_context();
 
 
 mps_res_t rust_mps_alloc_obj(mps_addr_t *addr_o,
@@ -101,13 +107,6 @@ void add_symbol_table_pair(struct sections* section, char * key, uint64_t num);
 uint64_t get_symbol_table_record(struct sections* section, char* key);
 
 ////////////////////////////////////////////////////////////
-
-////////////////////////// VM //////////////////////////////
-
-void set_context(Context* ctx);
-Context get_context();
-////////////////////////////////////////////////////////////
-
 
 
 ///////////////////////// SYMBOL TABLE //////////////////////////////
@@ -235,6 +234,8 @@ union slot {
     uint64_t raw;
 };
 
+//////////////////////////////////// GC ////////////////////////////////////
+
 /* obj_gen_params -- initial setup for generational GC          %%MPS
  *
  * Each structure in this array describes one generation of objects. The
@@ -252,21 +253,16 @@ union slot {
  * frequent garbage collections! See topic/collection.
  */
 
-static mps_gen_param_s obj_gen_params[] = {
-  { 150, 0.85 },
-  { 170, 0.45 }
-};
-
-/*
 #ifndef MAXIMUM_HEAP_SIZE
 #define MAXIMUM_HEAP_SIZE (512 * 1024 * 1024)
 #endif
 
-{
+static mps_gen_param_s obj_gen_params[] = {
   { 8 * 1024, 0.45 },
   { MAXIMUM_HEAP_SIZE/1024 - 8 * 1024, 0.99 }
-};*/
+};
 
+////////////////////////////////////////////////////////////////////////////
 
 uint64_t invert_non_negative(uint64_t slot) {
     uint64_t mask =  ( ~((int64_t)slot)  >> 63) & !(1LU << 63);
@@ -277,7 +273,7 @@ uint16_t tag(uint64_t slot) {
     return (slot >> 48 & 0xFFFF);
 }
 
-//Double Function
+// ---------------- Double Function ----------------
 
 bool is_double(uint64_t slot) {
     uint16_t t = tag(slot);
@@ -362,7 +358,7 @@ uint64_t to_small_int(int32_t num) {
     return result;
 }
 
-// Nil Function
+// ---------------- Nil Function ----------------
 
 bool is_nil(uint64_t slot) {
     return slot == 0;
@@ -373,7 +369,7 @@ uint64_t get_nil() {
 }
 
 
-// Bool Function
+// ---------------- Bool Function ----------------
 
 bool is_bool(uint64_t slot) {
     uint16_t t = tag(slot);
@@ -391,8 +387,22 @@ uint64_t to_bool(bool value) {
 }
 
 
+bool is_falsy(uint64_t slot) {
+    printf("is_truthy \n");
+    if(is_bool(slot))
+        return  get_bool(slot) == 0;
+    if(is_nil(slot))
+        return true;
+    else
+        return false;
+}
 
-// is Obj Function
+bool is_truthy(uint64_t slot) {
+    printf("is_truthy \n");
+    return !is_falsy(slot);
+}
+
+// ---------------- OBJ Function ----------------
 
 bool is_pointer(uint64_t slot) {
     uint16_t t = tag(slot);
@@ -565,29 +575,26 @@ void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt) {
 
 void print_slot (uint64_t slot) {
     if( is_small_int(slot) ) {
-        printf("i%d ", get_small_int( slot )  );
-        //printf(" is int\n");
+        printf("i%d ", get_small_int(slot));
         return;
     }
 
     if( is_double(slot) ) {
-        //printf(" is double\n");
-        printf("f%.2f ", get_double( slot ) );
+        printf("f%.2f ", get_double(slot));
         return;
     }
 
-    if( is_nil( slot ) ) {
-        //printf(" is nil\n");
+    if(is_nil(slot)) {
         printf("n0 ");
         return;
     }
 
-    if( is_fnew(slot) ) {
+    if(is_fnew(slot)) {
         printf("fn%d ", get_fnew(slot));
         return;
     }
 
-    if( is_pointer( slot ) ) {
+    if(is_pointer(slot)) {
         printf("P ");
         /*
         uint64_t* header_ptr = (uint64_t*) slot;
@@ -610,6 +617,8 @@ void print_slot (uint64_t slot) {
     printf("-");
 }
 
+// ------------------------- Print Slots ------------------------
+
 void print_slots(uint64_t* pslots ,int size) {
     int i = 0;
 
@@ -626,23 +635,14 @@ void print_slots(uint64_t* pslots ,int size) {
     }
 }
 
-/*const char *byte_to_binary(int x) {
-    static char b[9];
-    b[0] = '\0';
-
-    for (int z = 128; z > 0; z >>= 1) {
-        strcat(b, ((x & z) == z) ? "1" : "0");
-    }
-
-    return b;
-}*/
-
 void printbits(uint32_t n) {
     if (n) {
         printbits(n >> 1);
         printf("%d", n & 1);
     }
 }
+
+// ------------------------- Context ------------------------
 
 void set_context(Context* ctx) {
     base_slot = ctx->base_slot;
@@ -653,6 +653,9 @@ Context get_context() {
     Context old = { .base_slot = base_slot, .ip = ip };
     return old;
 }
+
+// ------------------------- True Evaluation ------------------------
+
 
 static int start(char *file) {
 
@@ -969,10 +972,10 @@ static int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("JUMP: %d\n",d);
                 int16_t offset = (int16_t) d;
-                uint32_t new_pc = pc + offset;
-                pc = new_pc;
 
-                pc++;
+                uint32_t new_pc = pc + offset;
+
+                pc = new_pc;
                 break;
             }
             case JUMPF: {
@@ -980,8 +983,10 @@ static int start(char *file) {
                 int16_t offset = (int16_t) d;
                 printf("JUMPF: %d %d\n",ad.a,offset);
 
-                if(!get_bool(slots[ad.a])) {
+                if(is_falsy(slots[base_slot + ad.a])) {
                     pc = pc + offset;
+                } else {
+                    pc++;
                 }
                 break;
             }
@@ -990,8 +995,10 @@ static int start(char *file) {
                 int16_t offset = (int16_t) d;
                 printf("JUMPT: %d %d\n",ad.a,offset);
 
-                if(get_bool(slots[ad.a])) {
+                if(is_truthy(slots[base_slot + ad.a])) {
                     pc = pc + offset;
+                } else {
+                    pc++;
                 }
                 break;
             }
