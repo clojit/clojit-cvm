@@ -141,7 +141,9 @@ int parse(uint8_t *buf, struct sections *sec)
 		  case SECTION_CSTR:
 		    printf("SECTION_CSTR  %d\n", cnt);
             uint32_t* start_of_index = (uint32_t*)(void *)section_data_ptr;
+
             uint32_t* start_of_character_data_32 = start_of_index + cnt + 1; // 1 for HEADER_SIZE of character section
+
             char*  start_of_character_data_8 = (char*)(void *)start_of_character_data_32;
 
             char **strptr;
@@ -156,13 +158,17 @@ int parse(uint8_t *buf, struct sections *sec)
 
                    printf("str[%d] (address %p) : %s\n",j, strptr[j] , strptr[j]);
             }
+
             sec->cstr_cnt = cnt;
             sec->cstr = strptr;
 
-            //printf("offset: %zd\n", offset);
-            uint32_t bytesOfStr = ntohl(*(start_of_index + (cnt-1)));
-            offset = offset + bytesOfStr  + sizeof(uint32_t) + sizeof(uint32_t) + (cnt * sizeof(uint32_t));
-            //printf("offset: %zd\n", offset);
+            uint32_t bytesOfStr = 0;
+            if(cnt != 0)
+                bytesOfStr = ntohl(*(start_of_index + (cnt-1)));
+
+            offset = offset +
+                     bytesOfStr  +
+                     sizeof(uint32_t) + sizeof(uint32_t) + (cnt * sizeof(uint32_t));
 
 		    break;
 		  case SECTION_CKEY:
