@@ -1,8 +1,7 @@
 language: java
 
 before_script:
-    - git clone https://github.com/clojit/clojit-tests.git
+    - chmod u+x runtests.sh
 
 script:
-    - cd clojit-tests
-    - bash runtests.sh
+    - ./runtests.sh
