@@ -1,6 +1,4 @@
 language: java
 jdk:
  - oraclejdk8
-script:
- - chmod u+x runtests.sh
- - ./runtests.sh
+script: ./runtests.sh
