@@ -1,8 +1,12 @@
-language: bash
+language: java
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y git
 
 before_script:
     - git clone https://github.com/clojit/clojit-tests.git
 
 script:
     - cd clojit-tests
-    - bash equality_test.sh
+    - bash runtests.sh
