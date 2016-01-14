@@ -1,4 +1,8 @@
-language: java
-jdk:
- - oraclejdk8
-script: ./runtests.sh
+language: bash
+
+before_script:
+    - git clone https://github.com/clojit/clojit-tests.git
+
+script:
+    - cd clojit-tests
+    - bash equality_test.sh
