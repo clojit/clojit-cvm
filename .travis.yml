@@ -11,9 +11,8 @@ addons:
         sources:
             - llvm-toolchain-precise-3.6
             - ubuntu-toolchain-r-test
-
-packages:
-    - clang-3.6
+        packages:
+            - clang-3.6
 
 before_script:
     - chmod u+x runtests.sh
