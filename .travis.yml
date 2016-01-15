@@ -4,16 +4,16 @@ jdk:
   - oraclejdk7
 
 compiler:
-  - clang-3.7
+  - clang
 
 addons:
     apt:
         sources:
-            - llvm-toolchain-precise-3.7
+            - llvm-toolchain-precise-3.6
             - ubuntu-toolchain-r-test
 
 packages:
-    - clang-3.7
+    - clang-3.6
 
 before_script:
     - chmod u+x runtests.sh
