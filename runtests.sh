@@ -4,4 +4,4 @@ cd clojit-tests
 chmod u+x setup.sh
 ./setup.sh
 chmod u+x gradlew
-./gradlew test -i
+./gradlew test
