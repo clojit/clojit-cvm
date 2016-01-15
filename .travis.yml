@@ -4,7 +4,7 @@ jdk:
   - oraclejdk7
 
 compiler:
-  - clang
+  - clang-3.6
 
 addons:
     apt:
