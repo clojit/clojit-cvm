@@ -1,24 +1,21 @@
 language: java
-
 jdk:
-  - oraclejdk7
-
+- oraclejdk7
 compiler:
-  - clang-3.6
-
+- clang-3.6
 env:
-    - CC=clang-3.6
-
+  matrix:
+  - CC=clang-3.6
+  global:
+    secure: OmKiA/TdmnIZNKfvtJmWlsRVitFj9jV9+QcKhkZ018jMTQ4jfU79zDnjCvuVsmjxwYqcdER4xuc8CB2IbO5+X82RzOvnJWDgflVLR9+nw2A642nwetwScojIBG5RtZcc5XgL2u7QOR8jl8UORZ2PD9gqcxhQRolRrVEtt6MvU7A/9sou9Gbws3JEG0vxb4EwlW0NTY5a21MGQzbxtAkFRdAPWF7pXcrK4AzFXhbSLumEvQ4umvCR0bLwWy6KvFgv5i4JwmxLwT5dzwtX3ArsXUjL+mufNVni3JPT5905f51Fq8fC3RdLLiQVXxFUUDj2iYM0abttzpFvb5ajul+Cx3cKfMppuIwQrNgPQPw5lM9UxuCEEDhYZ1CMPWuMAl6j/BEOtGjN3Xo1q+MFCZfCxYP6TZdd1BLdECQLLjW3R5O/K2s9CGgbPtF/XHUagq56S4YfxhMyQmVjmoOQllU8x1700wsVDcG+yTa5RGMJ2TY6c3TMOZDS0bsUVLzri58SpBbNqrUnTojfTrH5xxNe5gLXUGVUAqqQwqCynstuXYCwbzxIT0cM9UkTt52ps6iU4hBCrTlu5HjIougxyCJo/3t5Z0iqAXFLuNAa5fjaFNt+Hdy8PH98o7BUTLMZsVs4fP4FyDURHPe12gMCfzQkxP0eWdfrG/o9SjU+sAQ/DwE=
 addons:
-    apt:
-        sources:
-            - llvm-toolchain-precise-3.6
-            - ubuntu-toolchain-r-test
-        packages:
-            - clang-3.6
-
+  apt:
+    sources:
+    - llvm-toolchain-precise-3.6
+    - ubuntu-toolchain-r-test
+    packages:
+    - clang-3.6
 before_script:
-    - chmod u+x runtests.sh
-
+- chmod u+x runtests.sh
 script:
-    - ./runtests.sh
+- ./runtests.sh
