@@ -6,6 +6,8 @@ chmod u+x setup.sh
 chmod u+x gradlew
 ./gradlew test
 
+retval=$?
+
 if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
   echo -e "Starting to update gh-pages\n"
 
@@ -31,3 +33,4 @@ if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
 
   echo -e "Done magic with coverage\n"
 fi
+exit $retval
