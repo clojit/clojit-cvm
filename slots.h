@@ -3,7 +3,12 @@
 
 #include <inttypes.h>
 
+#include "mps.h"
+
 #define SLOTS_INITIAL_CAPACITY 100
+#define VAL_BITS (48u)
+#define TAG_MASK (0xFFFFul << VAL_BITS)
+
 
 typedef union slot {
     double dbl;
@@ -15,10 +20,12 @@ typedef union slot {
 typedef struct slots {
   uint32_t size;      // slots used so far
   uint32_t capacity;  // total available slots
+  mps_root_t root_o;
+  mps_arena_t arena;
   uint64_t *data;     // array of uint64_tegers we're storing
 } Slots;
 
-void slots_init(Slots *slots);
+void slots_init(Slots *slots, mps_arena_t arena);
 
 void slots_append(Slots *slots, uint64_t value);
 
