@@ -12,7 +12,7 @@
 #include "uthash.h"
 #include "loader.h"
 #include "stack.h"
-
+#include "slots.h"
 
 ////////////////////////////// MEMORY MANAGEMENT //////////////////////////////
 
@@ -73,7 +73,7 @@ uint64_t to_type(uint16_t type);
 bool is_type(uint64_t slot);
 uint16_t get_type(uint64_t slot);
 // ---------------- FNEW Function  ----------------
-uint64_t to_fnew(int16_t offset);
+uint64_t to_fnew(int16_t fnew);
 bool is_fnew(uint64_t slot);
 int16_t get_fnew(uint64_t slot);
 
@@ -92,7 +92,7 @@ uint64_t invert_non_negative(uint64_t slot);
 uint64_t get_symbol_table_record(struct sections* section, char* key);
 void printbits(uint32_t n);
 //const char *byte_to_binary(int x);
-void print_slots(uint64_t* pslots ,int size);
+void print_slots(Slots* s,int size);
 void print_slot (uint64_t slot);
 void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt);
 mps_res_t rust_mps_create_ap(mps_ap_t *ap_o, mps_pool_t pool);
@@ -196,11 +196,12 @@ static mps_ap_t obj_ap;         /* allocation point used to allocate objects */
 
 /////////////////////// Virtual Maschine Data ///////////////////////
 
-static uint64_t slots[100] = {0};
+Slots slots = {0};
+Stack stack = {0};
+
 static uint32_t pc = 0;
 static uint32_t ip = 0;
 static uint32_t base_slot = 0;
-static Stack stack;
 
 /////////////////////////////////////////////////////////////////////
 
@@ -228,11 +229,6 @@ const uint16_t TAG_BOOL          = 0xFFFD;
 const uint16_t TAG_TYPE          = 0xFFFC;
 const uint16_t TAG_FNEW          = 0xFFFB;
 
-union slot {
-    double dbl;
-    uintptr_t ptr;
-    uint64_t raw;
-};
 
 //////////////////////////////////// GC ////////////////////////////////////
 
@@ -317,9 +313,9 @@ uint16_t get_type(uint64_t slot) {
 
 // ---------------- FNEW Function  ----------------
 
-uint64_t to_fnew(int16_t offset) {
-    uint64_t fnew = ((uint64_t) TAG_FNEW) << 48;
-    uint64_t result = fnew | offset;
+uint64_t to_fnew(int16_t type) {
+    uint64_t int0 = ((uint64_t) TAG_FNEW) << 48;
+    uint64_t result = int0 | type;
     return result;
 }
 
@@ -335,6 +331,13 @@ int16_t get_fnew(uint64_t slot) {
 
 // ---------------- Int Function ----------------
 
+uint64_t to_small_int(int32_t num) {
+    uint64_t int0 = ((uint64_t) TAG_SMALL_INTEGER) << 48;
+    uint64_t result = int0 | num;
+    return result;
+}
+
+
 bool is_small_int(uint64_t slot) {
     uint16_t t = tag(slot);
     return t == TAG_SMALL_INTEGER;
@@ -344,19 +347,6 @@ int32_t get_small_int(uint64_t slot) {
     return (slot & 0xFFFFFFFF);
 }
 
-uint64_t to_small_int(int32_t num) {
-
-    uint64_t int0 = ((uint64_t) TAG_SMALL_INTEGER) << 48;
-
-    //printf("empty : %016"PRIx64"\n", int0);
-    //printf("num64 : %016"PRIx64"\n", (uint64_t) num);
-
-    uint64_t result = int0 | num;
-
-    //printf("to_small_int result: %016"PRIx64"\n", result);
-
-    return result;
-}
 
 // ---------------- Nil Function ----------------
 
@@ -574,13 +564,9 @@ void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt) {
 }
 
 void print_slot (uint64_t slot) {
+
     if( is_small_int(slot) ) {
         printf("i%d ", get_small_int(slot));
-        return;
-    }
-
-    if( is_double(slot) ) {
-        printf("f%.2f ", get_double(slot));
         return;
     }
 
@@ -591,6 +577,11 @@ void print_slot (uint64_t slot) {
 
     if(is_fnew(slot)) {
         printf("fn%d ", get_fnew(slot));
+        return;
+    }
+
+    if(is_type(slot)) {
+        printf("t%d", get_type(slot));
         return;
     }
 
@@ -614,21 +605,31 @@ void print_slot (uint64_t slot) {
         printf(") ");*/
         return;
     }
+
+    if( is_double(slot) ) {
+        printf("f%.2f ", get_double(slot));
+        return;
+    }
+
     printf("-");
 }
 
 // ------------------------- Print Slots ------------------------
 
-void print_slots(uint64_t* pslots ,int size) {
-    int i = 0;
+void print_slots(Slots* s,int size) {
+
+    int index = 0;
 
     printf("Slots: ");
     while (1) {
-        print_slot(pslots[i]);
 
-        i++;
+        if ( !(index >= s->size || index < 0) ) {
+            print_slot(slots_get(s, index));
+        }
 
-        if(i == size) {
+        index++;
+
+        if(index == size) {
             printf("\n");
             return;
         }
@@ -658,9 +659,8 @@ Context get_context() {
 
 
 static int start(char *file) {
-
+    printf("start\n");
     struct sections sec = {0};
-    stack_init(&stack);
 
     mps_res_t res;
     mps_root_t root_o;
@@ -669,7 +669,7 @@ static int start(char *file) {
                                        arena,
                                        mps_rank_exact(),
                                        (mps_rm_t)0,
-                                       (mps_addr_t *)slots,
+                                       (mps_addr_t *)slots.data,
                                        100,
                                        (mps_word_t)TAG_MASK);
     if (res != MPS_RES_OK) printf("Couldn't create slots roots");
@@ -751,17 +751,20 @@ static int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("CSTR: %d %d\n", ad.a, d);
 
-                slots[base_slot + ad.a] = (uint64_t)(void*)sec.cstr[d];
-
-                //printf("slots[%i]: %016"PRIx64"\n", ad.a,  (uint64_t) slots[ad.a] );
+                //slots.data[base_slot + ad.a] = (uint64_t)(void*)sec.cstr[d];
+                slots_set( &slots,(base_slot + ad.a), (uint64_t)(void*)sec.cstr[d]);
 
                 pc++;
                 break;
             }
             case CKEY: {
                 uint16_t d = ntohs(ad.d);
+
                 printf("CKEY: %d %d\n", ad.a, d);
-                slots[base_slot + ad.a] = (uint64_t)(void*)sec.cstr[d];
+
+                //slots.data[base_slot + ad.a] = (uint64_t)(void*)sec.cstr[d];
+                slots_set(&slots, (base_slot + ad.a) , (uint64_t)(void*)sec.cstr[d]);
+
                 pc++;
                 break;
             }
@@ -769,7 +772,7 @@ static int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("CINT: %d %d const: %d\n", ad.a, d, sec->cint[d]);
 
-                slots[base + ad.a] = sec->cint[d];
+                slots.data[base + ad.a] = sec->cint[d];
                 break;
             }*/
             /*case CFLOAT: {
@@ -782,9 +785,10 @@ static int start(char *file) {
             case CTYPE: {
                 uint16_t d = ntohs(ad.d);
                 printf("CTYPE: %d %d\n", ad.a, d);
-                //struct type_record* type = &sec.types[d];
-                //slots[base + ad.a] = (uint64_t)(void*)type;
-                slots[base_slot + ad.a] = d;
+
+                //slots.data[base_slot + ad.a] = to_type(d);
+                slots_set(&slots,(base_slot + ad.a),to_type(d));
+
                 pc++;
                 break;
             }
@@ -792,14 +796,15 @@ static int start(char *file) {
             case CBOOL: {
                 uint16_t d = ntohs(ad.d);
                 printf("CBOOL: %d %d\n", ad.a, d);
-                slots[base_slot + ad.a] = to_bool(d);
+                //slots.data[base_slot + ad.a] = to_bool(d);
+                slots_set(&slots,(base_slot + ad.a),to_bool(d));
                 pc++;
                 break;
             }
             case CNIL : {
                 printf("CNIL: %d\n", ad.a);
-                slots[base_slot +  ad.a] = get_nil();
-
+                //slots.data[base_slot +  ad.a] = get_nil();
+                slots_set(&slots,(base_slot +  ad.a),get_nil());
                 pc++;
                 break;
             }
@@ -809,14 +814,15 @@ static int start(char *file) {
                 uint64_t d = (uint64_t) d16;
 
                 printf("CSHORT: %d %d\n", ad.a, d16);
-                slots[base_slot + target_slot] = to_small_int(d);
+                //slots.data[base_slot + target_slot] = to_small_int(d);
+                slots_set(&slots,(base_slot + target_slot),to_small_int(d));
 
                 pc++;
                 break;
             }
             /*case SETF: {
                 int target_slot = ad.a;
-                slots[target_slot] = to_double(3.5);
+                slots.data[target_slot] = to_double(3.5);
                 printf("SETF: %d %.2f\n", ad.a, 3.5);
                 break;
             }*/
@@ -824,86 +830,104 @@ static int start(char *file) {
             case NSSET: {
                 uint16_t d = ntohs(ad.d);
                 printf("NSSET: %d %d\n", ad.a, d);
-                add_symbol_table_pair(&sec,sec.cstr[d], slots[base_slot + ad.a] );
+                add_symbol_table_pair(&sec,sec.cstr[d],
+                                      slots_get(&slots,(base_slot + ad.a)));
+
                 pc++;
                 break;
             }
             case NSGET: {
                 uint16_t d = ntohs(ad.d);
                 printf("NSGET: %d %d\n", ad.a, d);
-                slots[base_slot + ad.a] = get_symbol_table_record(&sec,sec.cstr[d]);
+                //slots.data[base_slot + ad.a] = get_symbol_table_record(&sec,sec.cstr[d]);
+                slots_set(&slots,(base_slot + ad.a),get_symbol_table_record(&sec,sec.cstr[d]));
                 pc++;
                 break;
             }
             //------------------Variable Slots------------------
             case ADDVV: {
                 int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots[base_slot + abc.b];
-                uint64_t cslot = slots[base_slot +abc.c];
-                
-                if ( is_small_int(bslot) && is_small_int(cslot) )
-                    slots[target_slot] = to_small_int(get_small_int(bslot) + get_small_int(cslot));
-                if ( is_double(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) + get_double(cslot));
-                if ( is_double(bslot) && is_small_int(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) + get_small_int(cslot) );
-                if ( is_small_int(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(cslot) + get_small_int(bslot) );
+                uint64_t bslot = slots.data[base_slot + abc.b];
+                uint64_t cslot = slots.data[base_slot +abc.c];
 
                 printf("ADDVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                
+                if (is_small_int(bslot) && is_small_int(cslot))
+                    slots_set(&slots,target_slot,to_small_int(get_small_int(bslot) + get_small_int(cslot)));
+
+                if (is_double(bslot) && is_double(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(bslot) + get_double(cslot)));
+
+                if (is_double(bslot) && is_small_int(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(bslot) + get_small_int(cslot)));
+
+                if (is_small_int(bslot) && is_double(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(cslot) + get_small_int(bslot)));
+
                 pc++;
                 break;
             }
             case SUBVV: {
                 int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots[base_slot + abc.b];
-                uint64_t cslot = slots[base_slot + abc.c];
-
-                if ( is_small_int(bslot) && is_small_int(cslot) )
-                    slots[target_slot] = to_small_int(get_small_int(bslot) - get_small_int(cslot));
-                if ( is_double(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) - get_double(cslot));
-                if ( is_double(bslot) && is_small_int(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) - get_small_int(cslot) );
-                if ( is_small_int(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(cslot) - get_small_int(bslot) );
+                uint64_t bslot = slots.data[base_slot + abc.b];
+                uint64_t cslot = slots.data[base_slot + abc.c];
 
                 printf("SUBVV: %d %d %d\n", abc.a, abc.b, abc.c);
+
+                if (is_small_int(bslot) && is_small_int(cslot) )
+                    slots_set(&slots,target_slot, to_small_int(get_small_int(bslot) - get_small_int(cslot)));
+
+                if (is_double(bslot) && is_double(cslot))
+                    slots_set(&slots,target_slot, to_double(get_double(bslot) - get_double(cslot)));
+
+                if (is_double(bslot) && is_small_int(cslot))
+                    slots_set(&slots,target_slot, to_double(get_double(bslot) - get_small_int(cslot)));
+
+                if (is_small_int(bslot) && is_double(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(cslot) - get_small_int(bslot)));
+
                 pc++;
                 break;
             }
             case MULVV: {
                 int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots[base_slot + abc.b];
-                uint64_t cslot = slots[base_slot + abc.c];
-
-                if ( is_small_int(bslot) && is_small_int(cslot) )
-                    slots[target_slot] = to_small_int(get_small_int(bslot) * get_small_int(cslot));
-                if ( is_double(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) * get_double(cslot));
-                if ( is_double(bslot) && is_small_int(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) * get_small_int(cslot) );
-                if ( is_small_int(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(cslot) * get_small_int(bslot) );
+                uint64_t bslot = slots.data[base_slot + abc.b];
+                uint64_t cslot = slots.data[base_slot + abc.c];
 
                 printf("MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
+
+                if (is_small_int(bslot) && is_small_int(cslot))
+                    slots_set(&slots,target_slot,to_small_int(get_small_int(bslot) * get_small_int(cslot)));
+
+                if (is_double(bslot) && is_double(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(bslot) * get_double(cslot)));
+
+                if (is_double(bslot) && is_small_int(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(bslot) * get_small_int(cslot)));
+
+                if (is_small_int(bslot) && is_double(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(cslot) * get_small_int(bslot)));
+
                 pc++;
                 break;
             }
             case MODVV: {
-                printf("MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
-                int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots[base_slot + abc.b];
-                uint64_t cslot = slots[base_slot + abc.c];
 
-                if ( is_small_int(bslot) && is_small_int(cslot) ) {
-                    slots[target_slot] = to_small_int(get_small_int(bslot) % get_small_int(cslot));
+                int target_slot = base_slot + abc.a;
+                uint64_t bslot = slots.data[base_slot + abc.b];
+                uint64_t cslot = slots.data[base_slot + abc.c];
+
+                printf("MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
+
+                if (is_small_int(bslot) && is_small_int(cslot)) {
+                    slots_set(&slots,target_slot, to_small_int(get_small_int(bslot) % get_small_int(cslot)));
                 } else {
-                    printf("Type Error. Called Modulo with Float");
+                    printf("Type Error. Called Modulo with Float\n");
+                    exit(1);
                     return 0;
                 }
 
-                slots[target_slot] =  slots[abc.b] % slots[abc.c];
+               // slots.data[target_slot] =  slots.data[abc.b] % slots.data[abc.c];
 
                 pc++;
                 break;
@@ -912,20 +936,20 @@ static int start(char *file) {
                 printf("DIVVV: %d %d %d\n", abc.a, abc.b, abc.c);
                 
                 int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots[base_slot + abc.b];
-                uint64_t cslot = slots[base_slot + abc.c];
+                uint64_t bslot = slots.data[base_slot + abc.b];
+                uint64_t cslot = slots.data[base_slot + abc.c];
 
-                if ( is_small_int(bslot) && is_small_int(cslot) )
-                    slots[target_slot] = to_small_int(get_small_int(bslot) / get_small_int(cslot));
+                if (is_small_int(bslot) && is_small_int(cslot))
+                    slots_set(&slots,target_slot,to_small_int(get_small_int(bslot) / get_small_int(cslot)));
 
-                if ( is_double(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) / get_double(cslot));
+                if (is_double(bslot) && is_double(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(bslot) / get_double(cslot)));
 
-                if ( is_double(bslot) && is_small_int(cslot) )
-                    slots[target_slot] = to_double(get_double(bslot) / get_small_int(cslot) );
+                if (is_double(bslot) && is_small_int(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(bslot) / get_small_int(cslot)));
 
-                if ( is_small_int(bslot) && is_double(cslot) )
-                    slots[target_slot] = to_double(get_double(cslot) / get_small_int(bslot) );
+                if (is_small_int(bslot) && is_double(cslot))
+                    slots_set(&slots,target_slot,to_double(get_double(cslot) / get_small_int(bslot)));
 
                 pc++;
                 break;
@@ -933,17 +957,17 @@ static int start(char *file) {
             case ISEQ: {
                 printf("ISEQ: %d %d %d\n", abc.a, abc.b, abc.c);
                 int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots[base_slot + abc.b];
-                uint64_t cslot = slots[base_slot + abc.c];
+                uint64_t bslot = slots.data[base_slot + abc.b];
+                uint64_t cslot = slots.data[base_slot + abc.c];
 
                 pc++;
 
-                if ( is_small_int(bslot) && is_small_int(cslot) ) {
-                    slots[target_slot] = (get_small_int(bslot) == get_small_int(cslot));
+                if (is_small_int(bslot) && is_small_int(cslot)) {
+                    slots_set(&slots,target_slot, to_bool(get_small_int(bslot) == get_small_int(cslot)));
                     break;
                 }
-                if ( is_double(bslot) && is_double(cslot) ) {
-                    slots[target_slot] = to_small_int(get_double(bslot) == get_double(cslot));
+                if (is_double(bslot) && is_double(cslot)) {
+                    slots_set(&slots,target_slot, to_bool(get_double(bslot) == get_double(cslot)));
                     break;
                 }
 
@@ -956,7 +980,9 @@ static int start(char *file) {
                 uint8_t target_slot = ad.a;
                 uint16_t d = ntohs(ad.d);
 
-                slots[base_slot + target_slot] = slots[base_slot + d];
+                //TODO NICK
+
+                slots.data[base_slot + target_slot] = slots.data[base_slot + d];
                 printf("MOV: %d %d\n",target_slot, d);
 
                 pc++;
@@ -983,7 +1009,7 @@ static int start(char *file) {
                 int16_t offset = (int16_t) d;
                 printf("JUMPF: %d %d\n",ad.a,offset);
 
-                if(is_falsy(slots[base_slot + ad.a])) {
+                if(is_falsy(slots_get(&slots, (base_slot + ad.a)))) {
                     pc = pc + offset;
                 } else {
                     pc++;
@@ -995,7 +1021,7 @@ static int start(char *file) {
                 int16_t offset = (int16_t) d;
                 printf("JUMPT: %d %d\n",ad.a,offset);
 
-                if(is_truthy(slots[base_slot + ad.a])) {
+                if(is_truthy(slots_get(&slots, (base_slot + ad.a)))) {
                     pc = pc + offset;
                 } else {
                     pc++;
@@ -1009,44 +1035,27 @@ static int start(char *file) {
 
                 printf("CALL %d %d\n", localbase, lit);
 
-                slots[base_slot + localbase] = to_small_int(pc);
+                slots_set(&slots,(base_slot + localbase), to_small_int(pc));
 
-                uint64_t fn_slot = slots[base_slot + localbase + 1];
+                uint64_t fn_slot = slots_get(&slots, (base_slot + localbase + 1));
 
                 uint16_t func = 0;
-                if(is_fnew(fn_slot))
+                if(is_fnew(fn_slot)) {
                     func = get_fnew(fn_slot);
-                else
+                } else {
                     printf("CALL ERROR NO FUNC\n");
-
-                //printf("func: %d\n", func);
-
-                //printf("old pc: %d\n", pc);
-                //printf("old ip: %d\n", ip);
-                //printf("base: %d\n", base);
-
+                    exit(0);
+                }
 
                 Context old = get_context();
                 push(&stack, old);
 
                 uint32_t newbase = base_slot + localbase;
 
-                //printf("new_pc: %d\n", new_pc);
-                //printf("ip: %d\n", func);
-
-                //printf("old base: %d", base_slot);
-                //printf(" old ip: %d\n", ip);
-
                 Context newContext = { .base_slot = newbase, .ip = func };
                 set_context(&newContext);
 
-                //printf("new base: %d", newbase);
-                //printf(" new ip: %d\n", func);
-
                 pc = ip;
-
-                //printf("pc: %d\n", pc);
-                //printf("ip: %d\n", ip);
 
                 break;
             }
@@ -1054,20 +1063,12 @@ static int start(char *file) {
                 uint8_t a = ad.a;
                 printf("RET %d\n", a);
 
-                uint32_t ret_addr = get_small_int(slots[base_slot]);
+                uint32_t ret_addr = get_small_int(slots_get(&slots, base_slot));
 
-                //printf("ret_addr %d\n", ret_addr);
-
-                slots[base_slot] = slots[base_slot+a];
-
-                //printf("base %d", base_slot);
-                //printf(" ip %d\n", ip);
+                slots_set(&slots, base_slot, slots_get(&slots, (base_slot+a)));
 
                 Context caller = pop(&stack);
                 set_context(&caller);
-
-                //printf("base %d", base_slot);
-                //printf(" ip %d\n", ip);
 
                 pc = ret_addr + 1;
                 break;
@@ -1081,13 +1082,12 @@ static int start(char *file) {
             case FNEW: {
 
                 //Once Closure are added, it needs to check if it is inside of a closure
-
                 uint16_t d = ntohs(ad.d);
                 int16_t offset = (int16_t) d;
 
-                printf("FNEW %d %d\n", ad.a, d);
+                printf("FNEW %d %d\n", ad.a, offset);
 
-                slots[base_slot + ad.a] = to_fnew(offset);
+                slots_set(&slots, (base_slot + ad.a), to_fnew(offset));
 
                 pc++;
                 break;
@@ -1099,7 +1099,7 @@ static int start(char *file) {
             case LOOP: { printf("LOOP\n"); break; }
             case BULKMOV: {
                 for(int i = 0; i != abc.c ;i++ ) {
-                    slots[base_slot + abc.a + i] = slots[base_slot + abc.b + i];
+                    slots_set(&slots, (base_slot + abc.a + i),  slots_get(&slots, (base_slot + abc.b + i)));
                 }
                 printf("BULKMOV: %d %d %d\n", abc.a, abc.b, abc.c);
                 pc++;
@@ -1133,7 +1133,9 @@ static int start(char *file) {
 
                 struct type_record type = sec.types[d];
 
-                res = rust_mps_alloc_obj((mps_addr_t*)(void*)&slots[base_slot + target_slot],
+                uint64_t alloc_slot = slots_get(&slots,(base_slot + target_slot));
+
+                res = rust_mps_alloc_obj((mps_addr_t*)(void*)&alloc_slot,
                                          obj_ap,
                                          type.type_size,
                                          type.type_id,
@@ -1149,10 +1151,10 @@ static int start(char *file) {
                  int var_index = abc.c;
                  int ref_index = abc.a;
 
-                 uint64_t* header_ptr = (uint64_t*) slots[base_slot + ref_index];
+                 uint64_t* header_ptr = (uint64_t*)slots_get(&slots,(base_slot + ref_index));
 
                  struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
-                 obj->ref[offset] = (uint64_t *) slots[base_slot + var_index];
+                 obj->ref[offset] = (uint64_t *)slots_get(&slots,(base_slot + var_index));
 
                  pc++;
                  break;
@@ -1162,10 +1164,11 @@ static int start(char *file) {
                 int dst = abc.a;
                 int offset = abc.c;
 
-                uint64_t* header_ptr = (uint64_t*) slots[base_slot + abc.b];
+                uint64_t* header_ptr = (uint64_t*)slots_get(&slots,(base_slot + abc.b));
                 struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
 
-                slots[base_slot + dst] = (uintptr_t) (void *) obj->ref[offset];
+                //slots.data[base_slot + dst] = (uintptr_t) (void *) obj->ref[offset];
+                slots_set(&slots, (base_slot + dst), (uintptr_t) (void *) obj->ref[offset]);
 
                 pc++;
                 break;
@@ -1197,10 +1200,9 @@ static int start(char *file) {
                 break;
             }
         }
-        print_slots(slots,10);
+        print_slots(&slots,10);
     }
 
-    stack_free(&stack);
 
     return 0;
 }
@@ -1237,11 +1239,17 @@ int main(int argc, char **argv) {
     res = mps_root_create_reg(&reg_root,arena,mps_rank_ambig(),0,thread,mps_stack_scan_ambig,marker,0);
     if (res != MPS_RES_OK) printf("Couldn't create root");
 
+    stack_init(&stack);
+    slots_init(&slots);
+
     if(argc > 1) {
         exit_code = start(argv[1]);
     } else {
         exit_code = MPS_RES_OK;
     }
+
+    stack_free(&stack);
+    slots_free(&slots);
 
     mps_arena_park(arena);
     mps_root_destroy(reg_root);

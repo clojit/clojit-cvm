@@ -16,6 +16,7 @@ LDFLAGS+=$(SANFLAGS)
 OBJS=  main.o
 OBJS+= loader.o
 OBJS+= stack.o
+OBJS+= slots.o
 OBJS+= mps.o
 
 all: main
