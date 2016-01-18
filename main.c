@@ -192,7 +192,7 @@ uint64_t get_symbol_table_record(struct sections* section, char* key) {
 /////////////////////// Virtual Maschine Data ///////////////////////
 
 static mps_arena_t arena;       /* the arena */
-static mps_pool_t obj_pool;     /* pool for ordinary Scheme objects */
+static mps_pool_t obj_pool;     /* pool for Clojure Object */
 static mps_ap_t obj_ap;         /* allocation point used to allocate objects */
 
 Slots slots = {0};

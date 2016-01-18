@@ -47,39 +47,41 @@ void slots_set(Slots *slots, uint32_t index, uint64_t value) {
     while (index >= slots->size) {
         slots_append(slots, 0);
     }
-
-  slots->data[index] = value;
+    slots->data[index] = value;
 }
+
 
 void slots_double_capacity_if_full(Slots *slots) {
 
+
+
     if (slots->size >= slots->capacity) {
-
-        printf("Doubling Slots capacity is not possible at the moment");
-        exit(0);
-
+        /* Double the size of the Stack */
         slots->capacity *= 2;
-        slots->data = realloc(slots->data, sizeof(uint64_t) * slots->capacity);
 
-        /*mps_root_t root_o_old;
+        uint64_t* data = malloc(sizeof(uint64_t) * slots->capacity);
+
+        mps_root_t root_o_old;
         root_o_old = slots->root_o;
 
         mps_root_t root_o_new;
         mps_res_t res = mps_root_create_table_masked(&root_o_new,
-                                                     arena,
+                                                     slots->arena,
                                                      mps_rank_exact(),
                                                      (mps_rm_t)0,
-                                                     (mps_addr_t *)slots->data,
+                                                     (mps_addr_t *)data,
                                                      slots->capacity,
                                                      (mps_word_t)TAG_MASK);
-        if (res != MPS_RES_OK) printf("Couldn't increase slots roots");
+        if (res != MPS_RES_OK) printf("Couldn't create root for increased slots");
 
+
+        for(int i = 0; i != slots->size; i++) {
+            data[i] = slots->data[i];
+        }
         slots->root_o = root_o_new;
-
-        mps_root_destroy(root_o_old);*/
-
+        slots->data = data;
+        mps_root_destroy(root_o_old);
     }
-
 }
 
 void slots_free(Slots *slots) {
