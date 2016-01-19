@@ -5,7 +5,7 @@
 
 #include "mps.h"
 
-#define SLOTS_INITIAL_CAPACITY 100
+#define SLOTS_INITIAL_CAPACITY 10
 #define VAL_BITS (48u)
 #define TAG_MASK (0xFFFFul << VAL_BITS)
 
@@ -34,6 +34,8 @@ uint64_t slots_get(Slots *slots, uint32_t index);
 void slots_set(Slots *slots, uint32_t index, uint64_t value);
 
 void slots_double_capacity_if_full(Slots *slots);
+void slots_half_capacity(Slots *slots);
+
 
 void slots_free(Slots *slots);
 

@@ -90,9 +90,7 @@ mps_res_t rust_mps_alloc_obj(mps_addr_t *addr_o,
 void add_symbol_table_pair(struct sections* section, char * key, uint64_t num);
 uint64_t invert_non_negative(uint64_t slot);
 uint64_t get_symbol_table_record(struct sections* section, char* key);
-void printbits(uint32_t n);
-//const char *byte_to_binary(int x);
-void print_slots(Slots* s,int size);
+void print_slots(Slots* s);
 void print_slot (uint64_t slot);
 void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt);
 mps_res_t rust_mps_create_ap(mps_ap_t *ap_o, mps_pool_t pool);
@@ -565,17 +563,17 @@ void rust_mps_debug_print_reachable(mps_arena_t _arena, mps_fmt_t fmt) {
 void print_slot (uint64_t slot) {
 
     if( is_small_int(slot) ) {
-        printf("i%d ", get_small_int(slot));
+        printf("i%d", get_small_int(slot));
         return;
     }
 
     if(is_nil(slot)) {
-        printf("n0 ");
+        printf("n0");
         return;
     }
 
     if(is_fnew(slot)) {
-        printf("fn%d ", get_fnew(slot));
+        printf("fn%d", get_fnew(slot));
         return;
     }
 
@@ -585,7 +583,7 @@ void print_slot (uint64_t slot) {
     }
 
     if(is_pointer(slot)) {
-        printf("P ");
+        printf("P");
         /*
         uint64_t* header_ptr = (uint64_t*) slot;
 
@@ -606,7 +604,7 @@ void print_slot (uint64_t slot) {
     }
 
     if( is_double(slot) ) {
-        printf("f%.2f ", get_double(slot));
+        printf("f%.2f", get_double(slot));
         return;
     }
 
@@ -615,30 +613,25 @@ void print_slot (uint64_t slot) {
 
 // ------------------------- Print Slots ------------------------
 
-void print_slots(Slots* s,int size) {
+void print_slots(Slots* s) {
 
     int index = 0;
 
-    printf("Slots: ");
+    printf("Slots<s:%d/b:%d>: ", s->size, base_slot);
     while (1) {
 
         if ( !(index >= s->size || index < 0) ) {
+            //printf("<%d:",index);
             print_slot(slots_get(s, index));
+            printf(" ");
         }
 
         index++;
 
-        if(index == size) {
+        if(index == s->size) {
             printf("\n");
             return;
         }
-    }
-}
-
-void printbits(uint32_t n) {
-    if (n) {
-        printbits(n >> 1);
-        printf("%d", n & 1);
     }
 }
 
@@ -726,7 +719,6 @@ static int start(char *file) {
     while (1) {
         instr inst = sec.instr[pc];
         //printf("------------INSTURCTION --------------\n");
-        //printbits( ntohl(inst) );
         //printf("\n");
 
         struct OpABC abc = *((struct OpABC *) &inst);
@@ -1044,6 +1036,8 @@ static int start(char *file) {
 
                 slots_set(&slots, base_slot, slots_get(&slots, (base_slot+a)));
 
+                slots.size = (base_slot+a);
+
                 Context caller = pop(&stack);
                 set_context(&caller);
 
@@ -1176,7 +1170,7 @@ static int start(char *file) {
                 break;
             }
         }
-        print_slots(&slots,10);
+        print_slots(&slots);
     }
 
 
