@@ -1,0 +1,25 @@
+group 'com.github.clojit'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+
+
+repositories {
+    mavenCentral()
+
+    flatDir {
+        dirs 'lib'
+    }
+}
+
+test {
+    testLogging {
+        events "failed"
+        exceptionFormat "short"
+    }
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile name: 'clojure-1.7.0'
+}

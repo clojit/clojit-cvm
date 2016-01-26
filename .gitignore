@@ -40,3 +40,6 @@ main
 
 
 .idea
+test-runner/.gradle
+test-runner/build
+clojit-testrunner.iml
