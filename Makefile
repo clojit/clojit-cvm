@@ -21,6 +21,7 @@ OBJS+= mps.o
 OBJS+= execute.o
 OBJS+= vm.o
 OBJS+= print.o
+OBJS+= alloc.o
 
 all: main
 
@@ -40,3 +41,6 @@ main: $(OBJS)
 clean:
 	rm -rf main $(OBJS)
 	rm -f $(MPS_KIT).tar.gz
+
+sclean:
+	rm -rf main $(OBJS)

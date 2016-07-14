@@ -3,11 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "slots.h"
-#include "stack.h"
-#include "alloc.h"
 
 #include "vm.h"
+
+const uint8_t OBJ_MPS_TYPE_PADDING = 0x00;
+const uint8_t OBJ_MPS_TYPE_FORWARD = 0x01;
+const uint8_t OBJ_MPS_TYPE_OBJECT  = 0x02;
+const uint8_t OBJ_MPS_TYPE_ARRAY   = 0x03;
 
 /* -------------------------- Create Arena ----------------------- */
 mps_res_t mps_create_vm_area(mps_arena_t *arena_o,
@@ -94,8 +96,8 @@ mps_res_t mps_create_obj_fmt(mps_fmt_t *fmt_o, mps_arena_t _arena)
         res = mps_fmt_create_k(fmt_o, _arena, args);
     } MPS_ARGS_END(args);
 
-    if (res != MPS_RES_OK)
-        return res;
+
+    return res;
 
 }
 
@@ -132,6 +134,17 @@ mps_res_t mps_create_ap(mps_ap_t *ap_o, mps_pool_t pool) {
     return mps_ap_create_k(ap_o, pool, mps_args_none);
 }
 
+void set_context(VM *vm, Context* ctx) {
+    vm->base = ctx->base_slot;
+    vm->ip = ctx->ip;
+}
+
+Context get_context(VM *vm) {
+    Context old = { .base_slot = vm->base, .ip = vm->ip };
+    return old;
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////////
 
@@ -159,7 +172,7 @@ void vm_init(VM *vm, size_t arenasize) {
 
     // ---------------------- CREATE OBJ FORMAT -------------------------
     res = mps_create_obj_fmt(&vm->obj_fmt, vm->arena);
-    if (res != MPS_RES_OK) printf("Couldn't create ");
+    if (res != MPS_RES_OK) printf("Couldn't create Obj Format");
 
     // ---------------------- CREATE AMC POOL -------------------------
     Pool amc = {0};
@@ -169,6 +182,9 @@ void vm_init(VM *vm, size_t arenasize) {
     if (res != MPS_RES_OK) printf("Couldn't create obj allocation point (amc)");
     vm->amc = &amc;
 
+    // ---------------------- CREATE AMC Allocation Point -------------------------
+
+
     // ---------------------- CREATE AMCZ POOL -------------------------
     Pool amcz = {0};
     res = mps_create_amcz_pool(&amcz.pool, vm->obj_fmt, vm->obj_chain, vm->arena);
@@ -176,6 +192,8 @@ void vm_init(VM *vm, size_t arenasize) {
     res = mps_create_ap(&amcz.ap,amcz.pool);
     if (res != MPS_RES_OK) printf("Couldn't create obj allocation point (amcz)");
     vm->amcz = &amcz;
+
+
 
     // ---------------------- INIT SLOTS -------------------------
     Slots slots = {0};

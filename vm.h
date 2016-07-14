@@ -5,6 +5,10 @@
 #include "mpsavm.h"
 #include "mpscamc.h"
 
+#include "slots.h"
+#include "stack.h"
+#include "alloc.h"
+
 typedef struct {
     mps_pool_t pool;
     mps_ap_t ap;
@@ -39,10 +43,10 @@ typedef struct vm {
 #define ALIGN_WORD(size) \
   (((size) + ALIGNMENT - 1) & ~(ALIGNMENT - 1))
 
-uint8_t OBJ_MPS_TYPE_PADDING = 0x00;
-uint8_t OBJ_MPS_TYPE_FORWARD = 0x01;
-uint8_t OBJ_MPS_TYPE_OBJECT  = 0x02;
-uint8_t OBJ_MPS_TYPE_ARRAY   = 0x03;
+extern const uint8_t OBJ_MPS_TYPE_PADDING;
+extern const uint8_t OBJ_MPS_TYPE_FORWARD;
+extern const uint8_t OBJ_MPS_TYPE_OBJECT;
+extern const uint8_t OBJ_MPS_TYPE_ARRAY;
 
 /*static const char *OBJ_MPS_TYPE_NAMES[] = {
     "Padding", "Forward", "Object", "Array"
@@ -83,6 +87,8 @@ static mps_gen_param_s obj_gen_params[] = {
 
 ////////////////////////////////////////////////////////////////////////////
 
+void set_context(VM *vm, Context* ctx);
+Context get_context(VM *vm);
 
 /* -------------------------- Create Arena ----------------------- */
 mps_res_t mps_create_vm_area(mps_arena_t *arena_o,

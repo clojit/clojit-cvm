@@ -11,8 +11,7 @@
 #include "loader.h"
 
 
-static int start(char *file) {
-    printf("start\n");
+int start(char *file) {
     struct sections sec = {0};
 
     mps_res_t res;
@@ -28,10 +27,11 @@ static int start(char *file) {
 
     vm_init(&vm, arenasize);
 
-    /*
     printf("------------SLOT--------------\n");
 
     while (1) {
+
+        uint32_t pc = vm.pc;
         instr inst = sec.instr[pc];
         //printf("------------INSTURCTION --------------\n");
         //printf("\n");
@@ -47,18 +47,18 @@ static int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("CSTR: %d %d\n", ad.a, d);
 
-                slots_set( &slots,(base_slot + ad.a), (uint64_t)(void*)sec.cstr[d]);
+                slots_set(&vm.slots,(vm.base + ad.a), (uint64_t)(void*)sec.cstr[d]);
 
-                pc++;
+                vm.pc++;
                 break;
             }
             case CKEY: {
                 uint16_t d = ntohs(ad.d);
 
                 printf("CKEY: %d %d\n", ad.a, d);
-                slots_set(&slots, (base_slot + ad.a) , (uint64_t)(void*)sec.cstr[d]);
+                slots_set(&vm.slots, (vm.base + ad.a) , (uint64_t)(void*)sec.cstr[d]);
 
-                pc++;
+                vm.pc++;
                 break;
             }
             //case CINT: {
@@ -79,23 +79,23 @@ static int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("CTYPE: %d %d\n", ad.a, d);
 
-                slots_set(&slots,(base_slot + ad.a),to_type(d));
+                slots_set(&vm.slots,(vm.base + ad.a),to_type(d));
 
-                pc++;
+                vm.pc++;
                 break;
             }
             //------------------Constant Value Operation------------------
             case CBOOL: {
                 uint16_t d = ntohs(ad.d);
                 printf("CBOOL: %d %d\n", ad.a, d);
-                slots_set(&slots,(base_slot + ad.a),to_bool(d));
-                pc++;
+                slots_set(&vm.slots,(vm.base + ad.a),to_bool(d));
+                vm.pc++;
                 break;
             }
             case CNIL : {
                 printf("CNIL: %d\n", ad.a);
-                slots_set(&slots,(base_slot +  ad.a),get_nil());
-                pc++;
+                slots_set(&vm.slots,(vm.base +  ad.a),get_nil());
+                vm.pc++;
                 break;
             }
             case CSHORT: {
@@ -104,149 +104,151 @@ static int start(char *file) {
                 uint64_t d = (uint64_t) d16;
 
                 printf("CSHORT: %d %d\n", ad.a, d16);
-                slots_set(&slots,(base_slot + target_slot),to_small_int(d));
+                slots_set(&vm.slots,(vm.base + target_slot),to_small_int(d));
 
-                pc++;
+                vm.pc++;
                 break;
             }
             //------------------Global Table Ops------------------
             case NSSET: {
                 uint16_t d = ntohs(ad.d);
                 printf("NSSET: %d %d\n", ad.a, d);
-                add_symbol_table_pair(&sec,sec.cstr[d],
-                                      slots_get(&slots,(base_slot + ad.a)));
 
-                pc++;
+                /*add_symbol_table_pair(&sec,sec.cstr[d],slots_get(&vm.slots,(vm.base + ad.a)));*/
+
+                vm.pc++;
                 break;
             }
             case NSGET: {
                 uint16_t d = ntohs(ad.d);
                 printf("NSGET: %d %d\n", ad.a, d);
-                slots_set(&slots,(base_slot + ad.a),get_symbol_table_record(&sec,sec.cstr[d]));
-                pc++;
+
+                /*slots_set(&vm.slots,(vm.base + ad.a),get_symbol_table_record(&sec,sec.cstr[d]));*/
+
+                vm.pc++;
                 break;
             }
             //------------------Variable Slots------------------
             case ADDVV: {
-                int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots_get(&slots, (base_slot + abc.b));
-                uint64_t cslot = slots_get(&slots, (base_slot +abc.c));
+                int target_slot = vm.base + abc.a;
+                uint64_t bslot = slots_get(&vm.slots, (vm.base + abc.b));
+                uint64_t cslot = slots_get(&vm.slots, (vm.base +abc.c));
 
                 printf("ADDVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot))
-                    slots_set(&slots,target_slot,to_small_int(get_small_int(bslot) + get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot,to_small_int(get_small_int(bslot) + get_small_int(cslot)));
 
                 if (is_double(bslot) && is_double(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(bslot) + get_double(cslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(bslot) + get_double(cslot)));
 
                 if (is_double(bslot) && is_small_int(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(bslot) + get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(bslot) + get_small_int(cslot)));
 
                 if (is_small_int(bslot) && is_double(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(cslot) + get_small_int(bslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(cslot) + get_small_int(bslot)));
 
-                pc++;
+                vm.pc++;
                 break;
             }
             case SUBVV: {
-                int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots_get(&slots, (base_slot + abc.b));
-                uint64_t cslot = slots_get(&slots, (base_slot +abc.c));
+                int target_slot = vm.base + abc.a;
+                uint64_t bslot = slots_get(&vm.slots, (vm.base + abc.b));
+                uint64_t cslot = slots_get(&vm.slots, (vm.base +abc.c));
 
                 printf("SUBVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot) )
-                    slots_set(&slots,target_slot, to_small_int(get_small_int(bslot) - get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot, to_small_int(get_small_int(bslot) - get_small_int(cslot)));
 
                 if (is_double(bslot) && is_double(cslot))
-                    slots_set(&slots,target_slot, to_double(get_double(bslot) - get_double(cslot)));
+                    slots_set(&vm.slots,target_slot, to_double(get_double(bslot) - get_double(cslot)));
 
                 if (is_double(bslot) && is_small_int(cslot))
-                    slots_set(&slots,target_slot, to_double(get_double(bslot) - get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot, to_double(get_double(bslot) - get_small_int(cslot)));
 
                 if (is_small_int(bslot) && is_double(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(cslot) - get_small_int(bslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(cslot) - get_small_int(bslot)));
 
-                pc++;
+                vm.pc++;
                 break;
             }
             case MULVV: {
-                int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots_get(&slots, (base_slot + abc.b));
-                uint64_t cslot = slots_get(&slots, (base_slot +abc.c));
+                int target_slot = vm.base + abc.a;
+                uint64_t bslot = slots_get(&vm.slots, (vm.base + abc.b));
+                uint64_t cslot = slots_get(&vm.slots, (vm.base +abc.c));
 
                 printf("MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot))
-                    slots_set(&slots,target_slot,to_small_int(get_small_int(bslot) * get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot,to_small_int(get_small_int(bslot) * get_small_int(cslot)));
 
                 if (is_double(bslot) && is_double(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(bslot) * get_double(cslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(bslot) * get_double(cslot)));
 
                 if (is_double(bslot) && is_small_int(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(bslot) * get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(bslot) * get_small_int(cslot)));
 
                 if (is_small_int(bslot) && is_double(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(cslot) * get_small_int(bslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(cslot) * get_small_int(bslot)));
 
-                pc++;
+                vm.pc++;
                 break;
             }
             case MODVV: {
 
-                int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots_get(&slots, (base_slot + abc.b));
-                uint64_t cslot = slots_get(&slots, (base_slot + abc.c));
+                int target_slot = vm.base + abc.a;
+                uint64_t bslot = slots_get(&vm.slots, (vm.base + abc.b));
+                uint64_t cslot = slots_get(&vm.slots, (vm.base + abc.c));
 
                 printf("MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot)) {
-                    slots_set(&slots,target_slot, to_small_int(get_small_int(bslot) % get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot, to_small_int(get_small_int(bslot) % get_small_int(cslot)));
                 } else {
                     printf("Type Error. Called Modulo with Float\n");
                     exit(1);
                 }
 
-                pc++;
+                vm.pc++;
                 break;
             }
             case DIVVV: {
                 printf("DIVVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
-                int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots_get(&slots, (base_slot + abc.b));
-                uint64_t cslot = slots_get(&slots, (base_slot + abc.c));
+                int target_slot = vm.base + abc.a;
+                uint64_t bslot = slots_get(&vm.slots, (vm.base + abc.b));
+                uint64_t cslot = slots_get(&vm.slots, (vm.base + abc.c));
 
                 if (is_small_int(bslot) && is_small_int(cslot))
-                    slots_set(&slots,target_slot,to_small_int(get_small_int(bslot) / get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot,to_small_int(get_small_int(bslot) / get_small_int(cslot)));
 
                 if (is_double(bslot) && is_double(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(bslot) / get_double(cslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(bslot) / get_double(cslot)));
 
                 if (is_double(bslot) && is_small_int(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(bslot) / get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(bslot) / get_small_int(cslot)));
 
                 if (is_small_int(bslot) && is_double(cslot))
-                    slots_set(&slots,target_slot,to_double(get_double(cslot) / get_small_int(bslot)));
+                    slots_set(&vm.slots,target_slot,to_double(get_double(cslot) / get_small_int(bslot)));
 
-                pc++;
+                vm.pc++;
                 break;
             }
             case ISEQ: {
                 printf("ISEQ: %d %d %d\n", abc.a, abc.b, abc.c);
-                int target_slot = base_slot + abc.a;
-                uint64_t bslot = slots_get(&slots, (base_slot + abc.b));
-                uint64_t cslot = slots_get(&slots, (base_slot + abc.c));
+                int target_slot = vm.base + abc.a;
+                uint64_t bslot = slots_get(&vm.slots, (vm.base + abc.b));
+                uint64_t cslot = slots_get(&vm.slots, (vm.base + abc.c));
 
-                pc++;
+                vm.pc++;
 
                 if (is_small_int(bslot) && is_small_int(cslot)) {
-                    slots_set(&slots,target_slot, to_bool(get_small_int(bslot) == get_small_int(cslot)));
+                    slots_set(&vm.slots,target_slot, to_bool(get_small_int(bslot) == get_small_int(cslot)));
                     break;
                 }
                 if (is_double(bslot) && is_double(cslot)) {
-                    slots_set(&slots,target_slot, to_bool(get_double(bslot) == get_double(cslot)));
+                    slots_set(&vm.slots,target_slot, to_bool(get_double(bslot) == get_double(cslot)));
                     break;
                 }
 
@@ -261,14 +263,14 @@ static int start(char *file) {
 
                 printf("MOV: %d %d\n",target_slot, d);
 
-                slots_set(&slots,(base_slot + target_slot), slots_get(&slots, (base_slot + d)) );
+                slots_set(&vm.slots,(vm.base + target_slot), slots_get(&vm.slots, (vm.base + d)) );
 
-                pc++;
+                vm.pc++;
                 break;
             }
             case NOT: {
                 printf("NOT // not implmented\n");
-                pc++;
+                vm.pc++;
                 break;
             }
             //------------------Jumps------------------
@@ -277,9 +279,9 @@ static int start(char *file) {
                 printf("JUMP: %d\n",d);
                 int16_t offset = (int16_t) d;
 
-                uint32_t new_pc = pc + offset;
+                uint32_t new_pc = vm.pc + offset;
 
-                pc = new_pc;
+                vm.pc = new_pc;
                 break;
             }
             case JUMPF: {
@@ -287,10 +289,10 @@ static int start(char *file) {
                 int16_t offset = (int16_t) d;
                 printf("JUMPF: %d %d\n",ad.a,offset);
 
-                if(is_falsy(slots_get(&slots, (base_slot + ad.a)))) {
-                    pc = pc + offset;
+                if(is_falsy(slots_get(&vm.slots, (vm.base + ad.a)))) {
+                    vm.pc = vm.pc + offset;
                 } else {
-                    pc++;
+                    vm.pc++;
                 }
                 break;
             }
@@ -299,10 +301,10 @@ static int start(char *file) {
                 int16_t offset = (int16_t) d;
                 printf("JUMPT: %d %d\n",ad.a,offset);
 
-                if(is_truthy(slots_get(&slots, (base_slot + ad.a)))) {
-                    pc = pc + offset;
+                if(is_truthy(slots_get(&vm.slots, (vm.base + ad.a)))) {
+                    vm.pc = vm.pc + offset;
                 } else {
-                    pc++;
+                    vm.pc++;
                 }
                 break;
             }
@@ -313,9 +315,9 @@ static int start(char *file) {
 
                 printf("CALL %d %d\n", localbase, lit);
 
-                slots_set(&slots,(base_slot + localbase), to_small_int(pc));
+                slots_set(&vm.slots,(vm.base + localbase), to_small_int(vm.pc));
 
-                uint64_t fn_slot = slots_get(&slots, (base_slot + localbase + 1));
+                uint64_t fn_slot = slots_get(&vm.slots, (vm.base + localbase + 1));
 
                 uint16_t func = 0;
                 if(is_fnew(fn_slot)) {
@@ -325,37 +327,36 @@ static int start(char *file) {
                     exit(0);
                 }
 
-                Context old = get_context();
-                push(&stack, old);
+                Context old = get_context(&vm);
+                push(&vm.stack, old);
 
-                uint32_t newbase = base_slot + localbase;
+                uint32_t newbase = vm.base + localbase;
 
                 Context newContext = { .base_slot = newbase, .ip = func };
-                set_context(&newContext);
+                set_context(&vm, &newContext);
 
-                pc = ip;
-
+                vm.pc = func;
                 break;
             }
             case RET: {
                 uint8_t a = ad.a;
                 printf("RET %d\n", a);
 
-                uint32_t ret_addr = get_small_int(slots_get(&slots, base_slot));
+                uint32_t ret_addr = get_small_int(slots_get(&vm.slots, vm.base));
 
-                slots_set(&slots, base_slot, slots_get(&slots, (base_slot+a)));
+                slots_set(&vm.slots, vm.base, slots_get(&vm.slots, (vm.base+a)));
 
-                slots.size = (base_slot+a);
+                vm.slots.size = (vm.base+a);
 
-                Context caller = pop(&stack);
-                set_context(&caller);
+                Context caller = pop(&vm.stack);
+                set_context(&vm, &caller);
 
-                pc = ret_addr + 1;
+                vm.pc = ret_addr + 1;
                 break;
             }
             case APPLY: {
                 printf("APPLY // not implmented\n");
-                pc++;
+                vm.pc++;
                 break;
             }
             //------------------Closures and Free Variables------------------
@@ -367,44 +368,44 @@ static int start(char *file) {
 
                 printf("FNEW %d %d\n", ad.a, offset);
 
-                slots_set(&slots, (base_slot + ad.a), to_fnew(offset));
+                slots_set(&vm.slots, (vm.base + ad.a), to_fnew(offset));
 
-                pc++;
+                vm.pc++;
                 break;
             }
-            case VFNEW: { printf("VFNEW // not implmented\n"); pc++; break; }
-            case GETFREEVAR: { printf("GETFREEVAR // not implmented\n"); pc++; break; }
-            case UCLO: { printf("UCLO // not implmented\n"); pc++; break; }
+            case VFNEW: { printf("VFNEW // not implmented\n"); vm.pc++; break; }
+            case GETFREEVAR: { printf("GETFREEVAR // not implmented\n"); vm.pc++; break; }
+            case UCLO: { printf("UCLO // not implmented\n"); vm.pc++; break; }
             //------------------Tail Recursion and Loops------------------
             case LOOP: { printf("LOOP\n"); break; }
             case BULKMOV: {
                 for(int i = 0; i != abc.c ;i++ ) {
-                    slots_set(&slots, (base_slot + abc.a + i),  slots_get(&slots, (base_slot + abc.b + i)));
+                    slots_set(&vm.slots, (vm.base + abc.a + i),  slots_get(&vm.slots, (vm.base + abc.b + i)));
                 }
                 printf("BULKMOV: %d %d %d\n", abc.a, abc.b, abc.c);
-                pc++;
+                vm.pc++;
                 break;
             }
             //------------------Arrays------------------
             case NEWARRAY:{
                 printf("NEWARRAY // not implmented\n");
-                pc++;
+                vm.pc++;
                 break;
             }
             case GETARRAY:{
                 printf("GETARRAY // not implmented\n");
-                pc++;
+                vm.pc++;
                 break;
             }
             case SETARRAY:{
                 printf("SETARRAY // not implmented\n");
-                pc++;
+                vm.pc++;
                 break;
             }
 
             //------------------Function Def------------------
-            case FUNCF:{ printf("FUNCF\n"); pc++; break; }
-            case FUNCV:{ printf("FUNCV\n"); pc++; break; }
+            case FUNCF:{ printf("FUNCF\n"); vm.pc++; break; }
+            case FUNCV:{ printf("FUNCV\n"); vm.pc++; break; }
             //------------------Types------------------
             case ALLOC: {
                 uint16_t d = ntohs(ad.d);
@@ -413,74 +414,81 @@ static int start(char *file) {
 
                 struct type_record type = sec.types[d];
 
-                uint64_t alloc_slot = slots_get(&slots,(base_slot + target_slot));
+                uint64_t alloc_slot = slots_get(&vm.slots,(vm.base + target_slot));
 
-                res = rust_mps_alloc_obj((mps_addr_t*)(void*)&alloc_slot,
-                                         obj_ap,
-                                         type.type_size,
-                                         type.type_id,
-                                         OBJ_MPS_TYPE_OBJECT);
+                res = mps_alloc_obj((mps_addr_t*)(void*)&alloc_slot,
+                                     vm.amc->ap,
+                                     type.type_size,
+                                     type.type_id,
+                                     OBJ_MPS_TYPE_OBJECT);
                  if (res != MPS_RES_OK) printf("Could't not allocate obj\n");
 
-                 pc++;
+                 vm.pc++;
                  break;
             }
             case SETFIELD: {
                  printf("SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
+
+                 /*
                  int offset = abc.b;
                  int var_index = abc.c;
                  int ref_index = abc.a;
 
-                 uint64_t* header_ptr = (uint64_t*)slots_get(&slots,(base_slot + ref_index));
+                 uint64_t* header_ptr = (uint64_t*)slots_get(&vm.slots,(vm.base + ref_index));
 
                  struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
-                 obj->ref[offset] = (uint64_t *)slots_get(&slots,(base_slot + var_index));
 
-                 pc++;
+                 mps_addr_t *fields = obj->ref;
+
+                 fields[offset] = (uint64_t *)slots_get(&vm.slots,(vm.base + var_index));
+                 */
+
+                 vm.pc++;
                  break;
             }
             case GETFIELD: {
                 printf("GETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
+                /*
                 int dst = abc.a;
                 int offset = abc.c;
 
-                uint64_t* header_ptr = (uint64_t*)slots_get(&slots,(base_slot + abc.b));
+                uint64_t* header_ptr = (uint64_t*)slots_get(&vm.slots,(vm.base + abc.b));
                 struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
 
-                slots_set(&slots, (base_slot + dst), (uintptr_t) (void *) obj->ref[offset]);
-
-                pc++;
+                slots_set(&vm.slots, (vm.base + dst), (uintptr_t) (void *) obj->ref[offset]);
+                */
+                vm.pc++;
                 break;
             }
             //------------------Run-Time Behavior------------------
             case BREAK:  {
                 printf("BREAK // not implmented\n");
-                pc++;
+                vm.pc++;
                 break;
             }
             case EXIT: {
                 printf("Valid End Reached\n");
-                pc++;
+                vm.pc++;
                 return 1;
             }
             case DROP: {
                 printf("DROP // not implmented\n");
-                pc++;
+                vm.pc++;
                 break;
             }
             case TRANC: {
                 printf("TRANC // not implmented\n");
-                pc++;
+                vm.pc++;
                 break;
             }
             default: {
                 printf("skipping instruction: %d\n\n", op);
-                pc++;
+                vm.pc++;
                 break;
             }
         }
-        print_slots(&slots);
-    }*/
+        print_slots(&vm.slots);
+    }
 
     free_vm(&vm);
 

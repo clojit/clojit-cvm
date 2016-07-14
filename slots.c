@@ -7,6 +7,16 @@
 #include "vm.h"
 #include "alloc.h"
 
+const uint16_t TAG_DOUBLE_MAX    = 0xFFF8;
+const uint16_t TAG_DOUBLE_MIN    = 0x0007;
+const uint16_t TAG_POINTER_LO    = 0x0000;
+const uint16_t TAG_POINTER_HI    = 0xFFFF;
+const uint16_t TAG_SMALL_INTEGER = 0xFFFE;
+const uint16_t TAG_BOOL          = 0xFFFD;
+const uint16_t TAG_TYPE          = 0xFFFC;
+const uint16_t TAG_FNEW          = 0xFFFB;
+
+
 void slots_init(Slots *slots, mps_arena_t arena) {
     // initialize size and capacity
     slots->size = 0;
@@ -141,6 +151,7 @@ void slots_free(Slots *slots) {
   free(slots->data);
 }
 
+
 //////////////////////////SLOT FUNCTION//////////////////////////
 
 uint64_t invert_non_negative(uint64_t slot) {
@@ -222,7 +233,7 @@ bool is_nil(uint64_t slot) {
     return slot == 0;
 }
 uint64_t get_nil() {
-    return 0;
+    return (uint64_t)0;
 }
 // ---------------- Bool Function ----------------
 bool is_bool(uint64_t slot) {

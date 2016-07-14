@@ -5,6 +5,8 @@
 
 #include "slots.h"
 #include "stack.h"
+#include "alloc.h"
+#include "print.h"
 
 #define CSTR  0
 #define CKEY  1
@@ -74,6 +76,6 @@ struct OpAD {
 typedef uint32_t instr;
 
 
-static int start(char *file);
+int start(char *file);
 
 #endif

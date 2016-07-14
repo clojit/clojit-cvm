@@ -1,6 +1,15 @@
 #ifndef _ALLOC_H_
 #define _ALLOC_H_
 
+#include <inttypes.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
+
+#include "mps.h"
+#include "vm.h"
+
 struct obj_stub {
     uint8_t type;
     uint8_t _;
