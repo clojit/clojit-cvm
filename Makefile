@@ -18,6 +18,9 @@ OBJS+= loader.o
 OBJS+= stack.o
 OBJS+= slots.o
 OBJS+= mps.o
+OBJS+= execute.o
+OBJS+= vm.o
+OBJS+= print.o
 
 all: main
 

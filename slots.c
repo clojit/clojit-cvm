@@ -4,6 +4,8 @@
 #include <stdlib.h>
 
 #include "slots.h"
+#include "vm.h"
+#include "alloc.h"
 
 void slots_init(Slots *slots, mps_arena_t arena) {
     // initialize size and capacity
@@ -55,6 +57,14 @@ void slots_set(Slots *slots, uint32_t index, uint64_t value) {
         slots_append(slots, 0);
     }
     slots->data[index] = value;
+}
+
+static mps_addr_t obj_isfwd(mps_addr_t addr) {
+    struct obj_stub *obj = addr;
+    if (obj->type == OBJ_MPS_TYPE_FORWARD) {
+        return obj->ref[0];
+    }
+    return NULL;
 }
 
 
@@ -125,9 +135,119 @@ void slots_double_capacity_if_full(Slots *slots) {
 
         mps_root_destroy(root_o_old);
     }
-
 }
 
 void slots_free(Slots *slots) {
   free(slots->data);
+}
+
+//////////////////////////SLOT FUNCTION//////////////////////////
+
+uint64_t invert_non_negative(uint64_t slot) {
+    uint64_t mask =  ( ~((int64_t)slot)  >> 63) & !(1LU << 63);
+    return slot ^ mask;
+}
+
+uint16_t tag(uint64_t slot) {
+    return (slot >> 48 & 0xFFFF);
+}
+
+bool is_pointer(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return  !is_nil(slot) && (t == TAG_POINTER_LO || t == TAG_POINTER_HI);
+}
+
+
+// ---------------- Double Function ----------------
+bool is_double(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t >= TAG_DOUBLE_MIN && t <= TAG_DOUBLE_MAX;
+}
+double get_double(uint64_t slot) {
+    if (is_double(slot)) {
+        union slot bits;
+        bits.raw = invert_non_negative(slot);
+        return *((double *)(void*) bits.ptr);
+    } else {
+        printf("get_double called with nondouble\n");
+        return 0.0;
+    }
+}
+uint64_t to_double(double num) {
+    union slot bits;
+    bits.dbl = num;
+    return invert_non_negative(bits.raw);
+}
+// ---------------- Type Function ----------------
+uint64_t to_type(uint16_t type) {
+    uint64_t int0 = ((uint64_t) TAG_TYPE) << 48;
+    uint64_t result = int0 | type;
+    return result;
+}
+bool is_type(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_TYPE;
+}
+uint16_t get_type(uint64_t slot) {
+    return (slot & 0xFFFFFFFF);
+}
+// ---------------- FNEW Function  ----------------
+uint64_t to_fnew(int16_t type) {
+    uint64_t int0 = ((uint64_t) TAG_FNEW) << 48;
+    uint64_t result = int0 | type;
+    return result;
+}
+bool is_fnew(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_FNEW;
+}
+int16_t get_fnew(uint64_t slot) {
+    return (slot & 0xFFFFFFFF);
+}
+// ---------------- Int Function ----------------
+uint64_t to_small_int(int32_t num) {
+    uint64_t int0 = ((uint64_t) TAG_SMALL_INTEGER) << 48;
+    uint64_t result = int0 | num;
+    return result;
+}
+bool is_small_int(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_SMALL_INTEGER;
+}
+int32_t get_small_int(uint64_t slot) {
+    return (slot & 0xFFFFFFFF);
+}
+// ---------------- Nil Function ----------------
+bool is_nil(uint64_t slot) {
+    return slot == 0;
+}
+uint64_t get_nil() {
+    return 0;
+}
+// ---------------- Bool Function ----------------
+bool is_bool(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_BOOL;
+}
+bool get_bool(uint64_t slot) {
+    return (bool) (slot & 0x1);
+}
+uint64_t to_bool(bool value) {
+    uint64_t mask = ((uint64_t) TAG_BOOL) << 48;
+    uint64_t result = mask | (uint64_t) value;
+    return result;
+}
+// ---------------- Truthy/Falsy Function ----------------
+bool is_falsy(uint64_t slot) {
+    printf("is_truthy \n");
+    if(is_bool(slot))
+        return  get_bool(slot) == 0;
+    if(is_nil(slot))
+        return true;
+    else
+        return false;
+}
+bool is_truthy(uint64_t slot) {
+    printf("is_truthy \n");
+    return !is_falsy(slot);
 }
