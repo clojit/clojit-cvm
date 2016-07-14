@@ -61,6 +61,7 @@ uint64_t slots_get(Slots *slots, uint32_t index) {
     return slots->data[index];
 }
 
+
 void slots_set(Slots *slots, uint32_t index, uint64_t value) {
 
     while (index >= slots->size) {

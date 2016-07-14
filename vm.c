@@ -144,7 +144,17 @@ Context get_context(VM *vm) {
     return old;
 }
 
+uint64_t get(VM *vm, uint32_t index) {
+    return slots_get( &(vm->slots), (vm->base + index));
+}
 
+void set(VM *vm, uint32_t index, uint64_t value) {
+    slots_set( &(vm->slots), (vm->base + index) , value );
+}
+
+void move(VM *vm, uint32_t to, uint32_t from) {
+    set(vm, to, get(vm, from));
+}
 
 ////////////////////////////////////////////////////////////////////////////////////
 
