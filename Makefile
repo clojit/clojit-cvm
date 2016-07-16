@@ -9,7 +9,6 @@ CFLAGS+=-I$(MPS_KIT)/code
 CFLAGS+=-pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual \
         -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=$(SANFLAGS)
-
 LDFLAGS+=-lpthread
 LDFLAGS+=$(SANFLAGS)
 
@@ -22,7 +21,9 @@ OBJS+= execute.o
 OBJS+= vm.o
 OBJS+= print.o
 OBJS+= alloc.o
-
+OBJS+= namespace.o
+OBJS+= avl.o
+g
 all: main
 
 .PHONY: clean

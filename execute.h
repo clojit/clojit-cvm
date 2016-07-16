@@ -7,6 +7,7 @@
 #include "stack.h"
 #include "alloc.h"
 #include "print.h"
+#include "namespace.h"
 
 #define CSTR  0
 #define CKEY  1

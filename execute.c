@@ -19,14 +19,14 @@ int start(char *file) {
     res = loadfile(file, &sec);
     if (res != MPS_RES_OK) printf("Couldn't load file");
 
-    sec.symbol_table = NULL;
-
     VM vm = {0};
 
     size_t arenasize = 32ul * 1024 * 1024;
 
     vm_init(&vm, arenasize);
 
+    namespace_start();
+    /*
     printf("------------SLOT--------------\n");
 
     while (1) {
@@ -115,7 +115,7 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("NSSET: %d %d\n", ad.a, d);
 
-                add_symbol_table_pair(&sec,sec.cstr[d],get(&vm,ad.a));
+                //add_symbol_table_pair(&sec,sec.cstr[d],get(&vm,ad.a));
 
                 vm.pc++;
                 break;
@@ -124,7 +124,7 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("NSGET: %d %d\n", ad.a, d);
 
-                set(&vm,ad.a, get_symbol_table_record(&sec,sec.cstr[d]));
+                //set(&vm,ad.a, get_symbol_table_record(&sec,sec.cstr[d]));
 
                 vm.pc++;
                 break;
@@ -488,6 +488,7 @@ int start(char *file) {
         }
         print_slots(&vm.slots);
     }
+    */
 
     free_vm(&vm);
 
