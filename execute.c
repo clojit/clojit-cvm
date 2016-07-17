@@ -346,7 +346,7 @@ int start(char *file) {
                 if(func == -1) {
 
                     builtin_fn f =  get_builtin(fn_slot);
-                    //gif((void *)vm); //TODO BIO
+                    if((void *)vm); //TODO BIO
 
                     for(int i = 2; i != (localbase + 10); i++) {
                         set(&vm, i, get_nil());
