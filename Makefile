@@ -26,7 +26,6 @@ OBJS+= print.o
 OBJS+= alloc.o
 OBJS+= namespace.o
 OBJS+= builtin.o
-OBJS+= uthash.o
 
 all: main
 

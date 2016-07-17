@@ -1,20 +1,3 @@
-/*#include <stdio.h>
-#include <stdlib.h>
-#include <inttypes.h>
-#include <assert.h>
-#include <string.h>
-#include <stdbool.h>
-#include <arpa/inet.h>
-
-#include "mps.h"
-#include "mpsavm.h"
-#include "mpscamc.h"
-#include "uthash.h"
-#include "loader.h"
-#include "stack.h"
-#include "slots.h"*/
-
-
 #include "mps.h"
 #include "execute.h"
 
