@@ -2,12 +2,14 @@
 #define _EXECUTE_H_
 
 #include <inttypes.h>
+#include <arpa/inet.h>
 
 #include "slots.h"
 #include "stack.h"
 #include "alloc.h"
 #include "print.h"
 #include "namespace.h"
+
 
 #define CSTR  0
 #define CKEY  1
