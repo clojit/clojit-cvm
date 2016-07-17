@@ -25,8 +25,6 @@ int start(char *file) {
 
     vm_init(&vm, arenasize);
 
-    namespace_start();
-    /*
     printf("------------SLOT--------------\n");
 
     while (1) {
@@ -115,16 +113,16 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("NSSET: %d %d\n", ad.a, d);
 
-                //add_symbol_table_pair(&sec,sec.cstr[d],get(&vm,ad.a));
+                add_symbol_table_pair(&vm, sec.cstr[d], get(&vm,ad.a));
 
                 vm.pc++;
                 break;
             }
             case NSGET: {
                 uint16_t d = ntohs(ad.d);
-                printf("NSGET: %d %d\n", ad.a, d);
+                printf("NSGET: %d %d -> %s\n ", ad.a, d, sec.cstr[d]);
 
-                //set(&vm,ad.a, get_symbol_table_record(&sec,sec.cstr[d]));
+                set(&vm,ad.a, get_symbol_table(&vm, sec.cstr[d]));
 
                 vm.pc++;
                 break;
@@ -318,12 +316,15 @@ int start(char *file) {
 
                 set(&vm,localbase, to_small_int(vm.pc));
 
-                uint64_t fn_slot = get(&vm,localbase++);
+                uint64_t fn_slot = get(&vm,localbase+1);
 
                 uint16_t func = 0;
                 if(is_fnew(fn_slot)) {
                     func = get_fnew(fn_slot);
+                } else if(is_builtin(fn_slot)) {
+                    func = -1;
                 } else {
+                    print_slots(&vm.slots, vm.base);
                     printf("CALL ERROR NO FUNC\n");
                     exit(0);
                 }
@@ -336,7 +337,23 @@ int start(char *file) {
                 Context newContext = { .base_slot = newbase, .ip = func };
                 set_context(&vm, &newContext);
 
-                vm.pc = func;
+                if(func == -1) {
+
+                    builtin_fn f =  get_builtin(fn_slot);
+                    f((void *)vm);
+
+                    for(int i = 2; i != (localbase + 10); i++) {
+                        set(&vm, i, get_nil());
+                    }
+
+                    Context caller = pop(&vm.stack);
+                    set_context(&vm, &caller);
+
+                    vm.pc++;
+                } else {
+                    vm.pc = func;
+                }
+
                 break;
             }
             case RET: {
@@ -345,7 +362,7 @@ int start(char *file) {
 
                 uint32_t ret_addr = get_small_int( get(&vm,0) );
 
-                set(&vm,0, get(&vm,a) );
+                move(&vm,0,a);
 
                 vm.slots.size = (vm.base+a);
 
@@ -486,9 +503,8 @@ int start(char *file) {
                 break;
             }
         }
-        print_slots(&vm.slots);
+        print_slots(&vm.slots,vm.base);
     }
-    */
 
     free_vm(&vm);
 

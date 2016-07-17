@@ -15,6 +15,7 @@ const uint16_t TAG_SMALL_INTEGER = 0xFFFE;
 const uint16_t TAG_BOOL          = 0xFFFD;
 const uint16_t TAG_TYPE          = 0xFFFC;
 const uint16_t TAG_FNEW          = 0xFFFB;
+const uint16_t TAG_BUILTIN       = 0xFFFA;
 
 
 void slots_init(Slots *slots, mps_arena_t arena) {
@@ -203,6 +204,21 @@ bool is_type(uint64_t slot) {
 uint16_t get_type(uint64_t slot) {
     return (slot & 0xFFFFFFFF);
 }
+
+// ---------------- BUILTIN Function --------------
+uint64_t to_builtin(builtin_fn fn) {
+    uint64_t int0 = ((uint64_t) TAG_BUILTIN) << 48;
+    uint64_t result = int0 |  ((uint64_t) fn) ;
+    return result;
+}
+bool is_builtin(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_BUILTIN;
+}
+builtin_fn get_builtin(uint64_t slot) {
+    return  (builtin_fn) (void *) (slot & 0xFFFFFFFF);
+}
+
 // ---------------- FNEW Function  ----------------
 uint64_t to_fnew(int16_t type) {
     uint64_t int0 = ((uint64_t) TAG_FNEW) << 48;

@@ -23,8 +23,8 @@ void print_slot (uint64_t slot) {
     }
 
     if(is_pointer(slot)) {
-        printf("P");
-        /*
+        //printf("P");
+
         uint64_t* header_ptr = (uint64_t*) slot;
 
         struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
@@ -39,7 +39,7 @@ void print_slot (uint64_t slot) {
             print_slot( (uintptr_t) (void *) obj->ref[i]);
         }
 
-        printf(") ");*/
+        printf(") ");
         return;
     }
 
@@ -53,15 +53,19 @@ void print_slot (uint64_t slot) {
 
 // ------------------------- Print Slots ------------------------
 
-void print_slots(Slots* s) {
+void print_slots(Slots* s, uint64_t base) {
     int index = 0;
 
     //printf("Slots<s:%d/b:%d>: ", s->size, base_slot);
     while (1) {
 
+        if(base == index)
+            printf("| ");
+
         if ( !(index >= s->size || index < 0) ) {
             //printf("<%d:",index);
             print_slot(slots_get(s, index));
+
             printf(" ");
         }
 

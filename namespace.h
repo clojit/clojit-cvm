@@ -5,6 +5,4 @@
 
 #include <glib.h>
 
-void namespace_start(void);
-
 #endif

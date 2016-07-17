@@ -25,6 +25,8 @@ uint16_t tag(uint64_t slot);
 
 bool is_pointer(uint64_t slot);
 
+typedef void (*builtin_fn)(void *vm);  //TODO GANDRO VM, get this to work 'typedef void (*builtin_fn)(VM *vm);'
+
 typedef union slot {
     double dbl;
     uintptr_t ptr;
@@ -66,6 +68,10 @@ bool is_double(uint64_t slot);
 uint64_t to_type(uint16_t type);
 bool is_type(uint64_t slot);
 uint16_t get_type(uint64_t slot);
+// ---------------- Builtin Function --------------
+uint64_t to_builtin(builtin_fn fn);
+bool is_builtin(uint64_t slot);
+builtin_fn get_builtin(uint64_t slot);
 // ---------------- FNEW Function  ----------------
 uint64_t to_fnew(int16_t type);
 bool is_fnew(uint64_t slot);

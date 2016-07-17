@@ -1,13 +1,15 @@
 #ifndef _VM_H_
 #define _VM_H_
 
+#include <glib.h>
+
 #include "mps.h"
 #include "mpsavm.h"
 #include "mpscamc.h"
 
-#include "slots.h"
 #include "stack.h"
 #include "alloc.h"
+#include "slots.h"
 
 typedef struct {
     mps_pool_t pool;
@@ -30,6 +32,8 @@ typedef struct vm {
 
     Slots slots;
     Stack stack;
+
+    GHashTable* symbol_table;
 
 } VM;
 
@@ -93,6 +97,12 @@ Context get_context(VM *vm);
 uint64_t get(VM *vm, uint32_t index);
 void set(VM *vm, uint32_t index, uint64_t value);
 void move(VM *vm, uint32_t to, uint32_t from);
+
+////////////////////////////////////////////////////////////////////////////
+
+uint64_t get_symbol_table(VM *vm, char * key);
+void add_symbol_table_pair(VM *vm, char * key, uint64_t value);
+
 
 /* -------------------------- Create Arena ----------------------- */
 mps_res_t mps_create_vm_area(mps_arena_t *arena_o,

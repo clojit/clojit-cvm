@@ -144,6 +144,9 @@ Context get_context(VM *vm) {
     return old;
 }
 
+
+////////////////////////////////////////////
+
 uint64_t get(VM *vm, uint32_t index) {
     return slots_get( &(vm->slots), (vm->base + index));
 }
@@ -155,6 +158,17 @@ void set(VM *vm, uint32_t index, uint64_t value) {
 void move(VM *vm, uint32_t to, uint32_t from) {
     set(vm, to, get(vm, from));
 }
+
+////////////////////////////////////////////
+
+uint64_t get_symbol_table(VM *vm, char * key) {
+    return g_hash_table_lookup(vm->symbol_table, (void *) key);
+}
+
+void add_symbol_table_pair(VM *vm, char * key, uint64_t value) {
+    g_hash_table_insert(vm->symbol_table, key, (void *) value);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////
 
@@ -194,7 +208,6 @@ void vm_init(VM *vm, size_t arenasize) {
 
     // ---------------------- CREATE AMC Allocation Point -------------------------
 
-
     // ---------------------- CREATE AMCZ POOL -------------------------
     Pool amcz = {0};
     res = mps_create_amcz_pool(&amcz.pool, vm->obj_fmt, vm->obj_chain, vm->arena);
@@ -202,8 +215,6 @@ void vm_init(VM *vm, size_t arenasize) {
     res = mps_create_ap(&amcz.ap,amcz.pool);
     if (res != MPS_RES_OK) printf("Couldn't create obj allocation point (amcz)");
     vm->amcz = &amcz;
-
-
 
     // ---------------------- INIT SLOTS -------------------------
     Slots slots = {0};
@@ -218,6 +229,14 @@ void vm_init(VM *vm, size_t arenasize) {
     stack_init(&stack);
 
     vm->stack = stack;
+
+
+    // ------------------- Symbol Table ----------------------
+     vm->symbol_table = g_hash_table_new(g_str_hash, g_str_equal);
+
+     add_builtin_function(vm);
+
+     to_builtin
 
 }
 

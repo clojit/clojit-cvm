@@ -1,28 +1,17 @@
 #ifndef _LOADER_H_
 #define _LOADER_H_
 
-#include "uthash.h"
-
 typedef uint32_t instr;
 
 struct vtable_record {
     uint64_t look_up_pair;
     uint32_t jump_offset;
-    UT_hash_handle hh;
 };
 
 struct type_record {
     uint32_t type_id;
     uint32_t type_size;
-    UT_hash_handle hh;
 };
-
-
-/*struct symbol_table_record {
-    char *symbol;          // key
-    uint64_t number;
-    UT_hash_handle hh;         // makes this structure hashable
-};*/
 
 struct context {
     uint32_t pc;
