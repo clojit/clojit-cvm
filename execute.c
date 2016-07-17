@@ -43,9 +43,13 @@ int start(char *file) {
             //------------------Constant Table Value Operation------------------
             case CSTR: {
                 uint16_t d = ntohs(ad.d);
-                printf("CSTR: %d %d\n", ad.a, d);
+                printf("CSTR: %d %d -> %s\n", ad.a, d, sec.cstr[d]);
 
-                set(&vm, ad.a, (uint64_t)(void*)sec.cstr[d] );
+
+                //TODO REAL STRING HANDLING
+                //set(&vm, ad.a,   (uint64_t)(void*)sec.cstr[d] );
+
+                set(&vm, ad.a,   d );
 
                 vm.pc++;
                 break;
@@ -312,7 +316,7 @@ int start(char *file) {
                 uint8_t localbase = ad.a;
                 uint16_t lit = ntohs(ad.d);
 
-                printf("CALL %d %d\n", localbase, lit);
+                printf("CALL %d %d", localbase, lit);
 
                 set(&vm,localbase, to_small_int(vm.pc));
 
@@ -320,12 +324,14 @@ int start(char *file) {
 
                 uint16_t func = 0;
                 if(is_fnew(fn_slot)) {
+                    printf(" -> is func\n");
                     func = get_fnew(fn_slot);
                 } else if(is_builtin(fn_slot)) {
+                    printf(" -> is builtin\n");
                     func = -1;
                 } else {
                     print_slots(&vm.slots, vm.base);
-                    printf("CALL ERROR NO FUNC\n");
+                    printf("\nCALL ERROR NO FUNC\n");
                     exit(0);
                 }
 
@@ -340,7 +346,7 @@ int start(char *file) {
                 if(func == -1) {
 
                     builtin_fn f =  get_builtin(fn_slot);
-                    //f((void *)vm);
+                    //gif((void *)vm); //TODO BIO
 
                     for(int i = 2; i != (localbase + 10); i++) {
                         set(&vm, i, get_nil());
@@ -350,6 +356,7 @@ int start(char *file) {
                     set_context(&vm, &caller);
 
                     vm.pc++;
+
                 } else {
                     vm.pc = func;
                 }

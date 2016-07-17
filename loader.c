@@ -87,15 +87,22 @@ int parse(uint8_t *buf, struct sections *sec)
         size_t len = ntohl(hdr[i].sec_len);
         uint32_t sec_id = ntohl(hdr[i].sec_id);
 
-        //printf("sec_len: %zd\n",len);
-        //printf("sec_id:  %d\n", sec_id);
+        printf("sec_len: %zd\n",len);
+        printf("sec_id:  %d\n", sec_id);
 
         uint32_t* section_cnt_ptr = (uint32_t*)(void *)(buf + offset);
+
+        printf("-----------\n");
+
         uint32_t cnt = ntohl(*section_cnt_ptr);
 
-        //printf("element count at offset, cnt:  %d\n", cnt);
+        printf("element count at offset, cnt:  %d\n", cnt);
 
-        uint32_t* section_data_ptr = (uint32_t*)(buf + offset + sizeof(uint32_t));
+        uint32_t offset_add_one = offset + sizeof(uint32_t);
+
+        uint32_t* section_data_ptr = (uint32_t*)(buf + offset_add_one);
+
+        printf("offset_add_one: %d \n", offset_add_one);
 
 	    switch(sec_id) {
 		  case SECTION_INSTRUCTIONS:
@@ -167,8 +174,9 @@ int parse(uint8_t *buf, struct sections *sec)
             offset = offset +
                      bytesOfStr  +
                      sizeof(uint32_t) + sizeof(uint32_t) + (cnt * sizeof(uint32_t));
-
 		    break;
+
+
 		  case SECTION_CKEY:
 		    printf("SECTION_CKEYR  %d\n", cnt);
             uint32_t* keys_start_of_index = (uint32_t*)(void *)section_data_ptr;
