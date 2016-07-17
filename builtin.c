@@ -1,6 +1,6 @@
 #include "builtin.h"
 
-void add_builtin_function(void *vm) {
+void add_builtin_function(VM *vm) {
 
     printf("------ BUILT IN FUNCTION: -------\n");
     print_slot(to_builtin(builtin_println));
@@ -9,7 +9,7 @@ void add_builtin_function(void *vm) {
     add_symbol_table_pair(vm,"println",to_builtin(builtin_println));
 }
 
-void builtin_println(void * vm) {
+void builtin_println(VM * vm) {
 
     VM * cvm = (VM *) vm;
 

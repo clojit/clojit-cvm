@@ -45,11 +45,10 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 printf("CSTR: %d %d -> %s\n", ad.a, d, sec.cstr[d]);
 
-
                 //TODO REAL STRING HANDLING
                 //set(&vm, ad.a,   (uint64_t)(void*)sec.cstr[d] );
 
-                set(&vm, ad.a,   d );
+                set(&vm, ad.a, d);
 
                 vm.pc++;
                 break;
@@ -346,7 +345,7 @@ int start(char *file) {
                 if(func == -1) {
 
                     builtin_fn f =  get_builtin(fn_slot);
-                    f((void *)vm); //TODO BIO
+                    f((void *) &vm);
 
                     for(int i = 2; i != (localbase + 10); i++) {
                         set(&vm, i, get_nil());
