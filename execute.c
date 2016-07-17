@@ -340,7 +340,7 @@ int start(char *file) {
                 if(func == -1) {
 
                     builtin_fn f =  get_builtin(fn_slot);
-                    f((void *)vm);
+                    //f((void *)vm);
 
                     for(int i = 2; i != (localbase + 10); i++) {
                         set(&vm, i, get_nil());

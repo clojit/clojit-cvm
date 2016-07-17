@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 #include "vm.h"
 
 const uint8_t OBJ_MPS_TYPE_PADDING = 0x00;
@@ -162,7 +161,7 @@ void move(VM *vm, uint32_t to, uint32_t from) {
 ////////////////////////////////////////////
 
 uint64_t get_symbol_table(VM *vm, char * key) {
-    return g_hash_table_lookup(vm->symbol_table, (void *) key);
+    return (uint64_t) (void *) g_hash_table_lookup(vm->symbol_table, (void *) key);
 }
 
 void add_symbol_table_pair(VM *vm, char * key, uint64_t value) {
@@ -234,10 +233,7 @@ void vm_init(VM *vm, size_t arenasize) {
     // ------------------- Symbol Table ----------------------
      vm->symbol_table = g_hash_table_new(g_str_hash, g_str_equal);
 
-     add_builtin_function(vm);
-
-     to_builtin
-
+     add_builtin_function((void *) vm); //TODO GANDRO
 }
 
 void free_vm (VM *vm) {

@@ -10,6 +10,7 @@
 #include "stack.h"
 #include "alloc.h"
 #include "slots.h"
+#include "builtin.h"
 
 typedef struct {
     mps_pool_t pool;

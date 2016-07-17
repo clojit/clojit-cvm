@@ -6,7 +6,7 @@ SANFLAGS=-fsanitize=undefined -fsanitize=address
 
 CFLAGS+=-g -O2 -std=c11
 CFLAGS+=-I$(MPS_KIT)/code
-CFLAGS+=-pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual \
+CFLAGS+=-pedantic  -Wshadow -Wpointer-arith -Wcast-qual \
         -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS+=$(SANFLAGS)
 CFLAGS+=$(shell pkg-config --cflags glib-2.0)
@@ -26,6 +26,7 @@ OBJS+= print.o
 OBJS+= alloc.o
 OBJS+= namespace.o
 OBJS+= builtin.o
+OBJS+= uthash.o
 
 all: main
 

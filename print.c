@@ -17,6 +17,11 @@ void print_slot (uint64_t slot) {
         return;
     }
 
+    if(is_builtin(slot)) {
+        printf("bfn%d", get_builtin(slot));
+        return;
+    }
+
     if(is_type(slot)) {
         printf("t%d", get_type(slot));
         return;

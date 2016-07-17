@@ -8,8 +8,6 @@
 #include <sys/mman.h>
 #include <arpa/inet.h>
 
-#include "uthash.h"
-
 #include "loader.h"
 
 struct parse_hdr {

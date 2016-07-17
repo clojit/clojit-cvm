@@ -3,6 +3,8 @@
 
 #define STACK_INITIAL_CAPACITY 10
 
+#include <inttypes.h>
+
 typedef struct {
     uint32_t base_slot;
     uint32_t ip;
