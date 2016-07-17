@@ -1,4 +1,5 @@
 #include "print.h"
+#include "debug.h"
 
 void print_slot (uint64_t slot) {
 
@@ -82,6 +83,61 @@ void print_slots(Slots* s, uint64_t base) {
         }
     }
 }
+
+void println_slot (uint64_t slot) {
+
+    if( is_small_int(slot) ) {
+        printf("%d", get_small_int(slot));
+        return;
+    }
+
+    if(is_nil(slot)) {
+        printf("nil");
+        return;
+    }
+
+    if(is_fnew(slot)) {
+        printf("fn%d", get_fnew(slot));
+        return;
+    }
+
+    if(is_builtin(slot)) {
+        printf("bfn%d", get_builtin(slot));
+        return;
+    }
+
+    if(is_type(slot)) {
+        printf("t%d", get_type(slot));
+        return;
+    }
+
+    if(is_pointer(slot)) {
+        //printf("P");
+
+        uint64_t* header_ptr = (uint64_t*) slot;
+
+        struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
+
+        //printf(" pheader: %016"PRIx64" ", header);
+
+        //< mpstype: %02"PRIx64", _: %02"PRIx64" cljtype: %04"PRIx64", size: %08"PRIx64">
+        printf("( [cljtype: %d, size: %d] ", obj->cljtype,obj->size );
+
+        for(int i = 0; i != ((obj->size / 8) - 1); i++) {
+            //printf(" <field %i: %016"PRIx64"> ", i,  obj->ref[i] );
+            print_slot( (uintptr_t) (void *) obj->ref[i]);
+        }
+
+        printf(") ");
+        return;
+    }
+
+    if( is_double(slot) ) {
+        printf("f%", get_double(slot));
+        return;
+    }
+}
+
 
 
 /*

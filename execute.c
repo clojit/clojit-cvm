@@ -9,7 +9,7 @@
 #include "mps.h"
 #include "mpsavm.h"
 #include "loader.h"
-
+#include "debug.h"
 
 int start(char *file) {
     struct sections sec = {0};
@@ -25,7 +25,8 @@ int start(char *file) {
 
     vm_init(&vm, arenasize);
 
-    printf("------------SLOT--------------\n");
+    if(debug_level > 0)
+        printf("------------SLOT--------------\n");
 
     while (1) {
 
@@ -43,12 +44,13 @@ int start(char *file) {
             //------------------Constant Table Value Operation------------------
             case CSTR: {
                 uint16_t d = ntohs(ad.d);
-                printf("CSTR: %d %d -> %s\n", ad.a, d, sec.cstr[d]);
+                if(debug_level > 0)
+                    printf("CSTR: %d %d -> %s\n", ad.a, d, sec.cstr[d]);
 
                 //TODO REAL STRING HANDLING
                 //set(&vm, ad.a,   (uint64_t)(void*)sec.cstr[d] );
 
-                set(&vm, ad.a, d);
+                set(&vm, ad.a, to_small_int(d) );
 
                 vm.pc++;
                 break;
@@ -56,7 +58,8 @@ int start(char *file) {
             case CKEY: {
                 uint16_t d = ntohs(ad.d);
 
-                printf("CKEY: %d %d\n", ad.a, d);
+                if(debug_level > 0)
+                    printf("CKEY: %d %d\n", ad.a, d);
                 set(&vm, ad.a, (uint64_t)(void*)sec.cstr[d] );
 
 
@@ -79,7 +82,8 @@ int start(char *file) {
             //}
             case CTYPE: {
                 uint16_t d = ntohs(ad.d);
-                printf("CTYPE: %d %d\n", ad.a, d);
+                if(debug_level > 0)
+                    printf("CTYPE: %d %d\n", ad.a, d);
 
                 set(&vm,ad.a,to_type(d));
 
@@ -89,13 +93,15 @@ int start(char *file) {
             //------------------Constant Value Operation------------------
             case CBOOL: {
                 uint16_t d = ntohs(ad.d);
-                printf("CBOOL: %d %d\n", ad.a, d);
+                if(debug_level > 0)
+                    printf("CBOOL: %d %d\n", ad.a, d);
                 set(&vm,ad.a,to_bool(d));
                 vm.pc++;
                 break;
             }
             case CNIL : {
-                printf("CNIL: %d\n", ad.a);
+                if(debug_level > 0)
+                    printf("CNIL: %d\n", ad.a);
                 set(&vm,ad.a,get_nil());
                 vm.pc++;
                 break;
@@ -105,7 +111,8 @@ int start(char *file) {
                 uint16_t d16 = ntohs(ad.d);
                 uint64_t d = (uint64_t) d16;
 
-                printf("CSHORT: %d %d\n", ad.a, d16);
+                if(debug_level > 0)
+                    printf("CSHORT: %d %d\n", ad.a, d16);
                 set(&vm,target_slot,to_small_int(d));
 
                 vm.pc++;
@@ -114,7 +121,8 @@ int start(char *file) {
             //------------------Global Table Ops------------------
             case NSSET: {
                 uint16_t d = ntohs(ad.d);
-                printf("NSSET: %d %d\n", ad.a, d);
+                if(debug_level > 0)
+                    printf("NSSET: %d %d\n", ad.a, d);
 
                 add_symbol_table_pair(&vm, sec.cstr[d], get(&vm,ad.a));
 
@@ -123,7 +131,9 @@ int start(char *file) {
             }
             case NSGET: {
                 uint16_t d = ntohs(ad.d);
-                printf("NSGET: %d %d -> %s\n ", ad.a, d, sec.cstr[d]);
+
+                if(debug_level > 0)
+                    printf("NSGET: %d %d -> %s\n ", ad.a, d, sec.cstr[d]);
 
                 set(&vm,ad.a, get_symbol_table(&vm, sec.cstr[d]));
 
@@ -136,7 +146,8 @@ int start(char *file) {
                 uint64_t bslot = get(&vm,abc.b);
                 uint64_t cslot = get(&vm,abc.c);
 
-                printf("ADDVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("ADDVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot))
                     set(&vm, target_slot, to_small_int(get_small_int(bslot) + get_small_int(cslot)));
@@ -158,7 +169,8 @@ int start(char *file) {
                 uint64_t bslot = get(&vm,abc.b);
                 uint64_t cslot = get(&vm,abc.c);
 
-                printf("SUBVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("SUBVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot) )
                     set(&vm,target_slot, to_small_int(get_small_int(bslot) - get_small_int(cslot)));
@@ -180,7 +192,8 @@ int start(char *file) {
                 uint64_t bslot = get(&vm,abc.b);
                 uint64_t cslot = get(&vm,abc.c);
 
-                printf("MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot))
                     set(&vm,target_slot,to_small_int(get_small_int(bslot) * get_small_int(cslot)));
@@ -203,7 +216,8 @@ int start(char *file) {
                 uint64_t bslot = get(&vm,abc.b);
                 uint64_t cslot = get(&vm,abc.c);
 
-                printf("MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot)) {
                     set(&vm,target_slot, to_small_int(get_small_int(bslot) % get_small_int(cslot)));
@@ -216,7 +230,8 @@ int start(char *file) {
                 break;
             }
             case DIVVV: {
-                printf("DIVVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("DIVVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 int target_slot = abc.a;
                 uint64_t bslot = get(&vm,abc.b);
@@ -238,7 +253,8 @@ int start(char *file) {
                 break;
             }
             case ISEQ: {
-                printf("ISEQ: %d %d %d\n", abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("ISEQ: %d %d %d\n", abc.a, abc.b, abc.c);
                 int target_slot = abc.a;
                 uint64_t bslot = get(&vm,abc.b);
                 uint64_t cslot = get(&vm,abc.c);
@@ -263,7 +279,8 @@ int start(char *file) {
                 uint8_t target_slot = ad.a;
                 uint16_t d = ntohs(ad.d);
 
-                printf("MOV: %d %d\n",target_slot, d);
+                if(debug_level > 0)
+                    printf("MOV: %d %d\n",target_slot, d);
 
                 move(&vm, target_slot, d);
 
@@ -271,14 +288,16 @@ int start(char *file) {
                 break;
             }
             case NOT: {
-                printf("NOT // not implmented\n");
+                if(debug_level > 0)
+                    printf("NOT // not implmented\n");
                 vm.pc++;
                 break;
             }
             //------------------Jumps------------------
             case JUMP: {
                 uint16_t d = ntohs(ad.d);
-                printf("JUMP: %d\n",d);
+                if(debug_level > 0)
+                    printf("JUMP: %d\n",d);
                 int16_t offset = (int16_t) d;
 
                 uint32_t new_pc = vm.pc + offset;
@@ -289,7 +308,8 @@ int start(char *file) {
             case JUMPF: {
                 uint16_t d = ntohs(ad.d);
                 int16_t offset = (int16_t) d;
-                printf("JUMPF: %d %d\n",ad.a,offset);
+                if(debug_level > 0)
+                    printf("JUMPF: %d %d\n",ad.a,offset);
 
                 if(is_falsy( get(&vm,ad.a) )) {
                     vm.pc = vm.pc + offset;
@@ -301,7 +321,8 @@ int start(char *file) {
             case JUMPT: {
                 uint16_t d = ntohs(ad.d);
                 int16_t offset = (int16_t) d;
-                printf("JUMPT: %d %d\n",ad.a,offset);
+                if(debug_level > 0)
+                    printf("JUMPT: %d %d\n",ad.a,offset);
 
                 if(is_truthy(get(&vm,ad.a))) {
                     vm.pc = vm.pc + offset;
@@ -315,7 +336,8 @@ int start(char *file) {
                 uint8_t localbase = ad.a;
                 uint16_t lit = ntohs(ad.d);
 
-                printf("CALL %d %d", localbase, lit);
+                if(debug_level > 0)
+                    printf("CALL %d %d", localbase, lit);
 
                 set(&vm,localbase, to_small_int(vm.pc));
 
@@ -323,40 +345,52 @@ int start(char *file) {
 
                 uint16_t func = 0;
                 if(is_fnew(fn_slot)) {
-                    printf(" -> is func\n");
+                    if(debug_level > 0)
+                        printf(" -> is func\n");
                     func = get_fnew(fn_slot);
                 } else if(is_builtin(fn_slot)) {
-                    printf(" -> is builtin\n");
-                    func = -1;
+                    if(debug_level > 0)
+                        printf(" -> is builtin\n");
+                    func = 0;
                 } else {
                     print_slots(&vm.slots, vm.base);
-                    printf("\nCALL ERROR NO FUNC\n");
+                    printf("\nCALL ERROR NO FUNC\n\n");
                     exit(0);
                 }
 
+                //printf("func now %d\n", func);
+
                 Context old = get_context(&vm);
+                //printf("old context base %d\n", old.base_slot );
+                //printf("old context ip %d\n", old.ip );
                 push(&vm.stack, old);
 
                 uint32_t newbase = vm.base + localbase;
+                //printf("newbase: %d\n\n", newbase);
 
                 Context newContext = { .base_slot = newbase, .ip = func };
                 set_context(&vm, &newContext);
+                //printf("new context base %d\n\n", newContext.base_slot );
+                //printf("new context ip %d\n\n", newContext.ip );
 
-                if(func == -1) {
-
+                if(func == 0) {
                     builtin_fn f =  get_builtin(fn_slot);
-                    f((void *) &vm);
+                    f(&vm);
 
                     for(int i = 2; i != (localbase + 10); i++) {
+                        //printf("set %d to nil\n\n");
                         set(&vm, i, get_nil());
                     }
 
+                    //printf("restore old context\n\n");
                     Context caller = pop(&vm.stack);
                     set_context(&vm, &caller);
 
                     vm.pc++;
 
                 } else {
+                    if(debug_level > 0)
+                        printf("func %d\n\n", func);
                     vm.pc = func;
                 }
 
@@ -364,7 +398,8 @@ int start(char *file) {
             }
             case RET: {
                 uint8_t a = ad.a;
-                printf("RET %d\n", a);
+                if(debug_level > 0)
+                    printf("RET %d\n", a);
 
                 uint32_t ret_addr = get_small_int( get(&vm,0) );
 
@@ -379,7 +414,8 @@ int start(char *file) {
                 break;
             }
             case APPLY: {
-                printf("APPLY // not implmented\n");
+                if(debug_level > 0)
+                    printf("APPLY // not implmented\n");
                 vm.pc++;
                 break;
             }
@@ -390,50 +426,84 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 int16_t offset = (int16_t) d;
 
-                printf("FNEW %d %d\n", ad.a, offset);
+                if(debug_level > 0)
+                    printf("FNEW %d %d\n", ad.a, offset);
 
                 set(&vm, ad.a, to_fnew(offset));
 
                 vm.pc++;
                 break;
             }
-            case VFNEW: { printf("VFNEW // not implmented\n"); vm.pc++; break; }
-            case GETFREEVAR: { printf("GETFREEVAR // not implmented\n"); vm.pc++; break; }
-            case UCLO: { printf("UCLO // not implmented\n"); vm.pc++; break; }
+            case VFNEW: {
+                if(debug_level > 0)
+                    printf("VFNEW // not implmented\n");
+                vm.pc++; break;
+            }
+            case GETFREEVAR: {
+                if(debug_level > 0)
+                    printf("GETFREEVAR // not implmented\n");
+                vm.pc++;
+                break;
+            }
+            case UCLO: {
+                if(debug_level > 0)
+                    printf("UCLO // not implmented\n");
+                vm.pc++;
+                break;
+                }
             //------------------Tail Recursion and Loops------------------
-            case LOOP: { printf("LOOP\n"); break; }
+            case LOOP: {
+                if(debug_level > 0)
+                    printf("LOOP\n");
+                break;
+            }
             case BULKMOV: {
                 for(int i = 0; i != abc.c ;i++ ) {
                     move(&vm, abc.a+i, abc.b+i);
                 }
-                printf("BULKMOV: %d %d %d\n", abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("BULKMOV: %d %d %d\n", abc.a, abc.b, abc.c);
                 vm.pc++;
                 break;
             }
             //------------------Arrays------------------
             case NEWARRAY:{
-                printf("NEWARRAY // not implmented\n");
+                if(debug_level > 0)
+                    printf("NEWARRAY // not implmented\n");
                 vm.pc++;
                 break;
             }
-            case GETARRAY:{
-                printf("GETARRAY // not implmented\n");
+            case GETARRAY: {
+                if(debug_level > 0)
+                    printf("GETARRAY // not implmented\n");
                 vm.pc++;
                 break;
             }
             case SETARRAY:{
-                printf("SETARRAY // not implmented\n");
+                if(debug_level > 0)
+                    printf("SETARRAY // not implmented\n");
                 vm.pc++;
                 break;
             }
 
             //------------------Function Def------------------
-            case FUNCF:{ printf("FUNCF\n"); vm.pc++; break; }
-            case FUNCV:{ printf("FUNCV\n"); vm.pc++; break; }
+            case FUNCF:{
+                if(debug_level > 0)
+                    printf("FUNCF\n");
+                vm.pc++;
+                break;
+            }
+            case FUNCV:{
+                if(debug_level > 0)
+                    printf("FUNCV\n");
+                vm.pc++;
+                break;
+            }
             //------------------Types------------------
             case ALLOC: {
                 uint16_t d = ntohs(ad.d);
-                printf("ALLOC: %d %d\n",ad.a,d);
+                if(debug_level > 0)
+                    printf("ALLOC: %d %d\n",ad.a,d);
                 int target_slot = ad.a;
 
                 struct type_record type = sec.types[d];
@@ -445,31 +515,32 @@ int start(char *file) {
                                      type.type_size,
                                      type.type_id,
                                      OBJ_MPS_TYPE_OBJECT);
-                 if (res != MPS_RES_OK) printf("Could't not allocate obj\n");
+                if (res != MPS_RES_OK) printf("Could't not allocate obj\n");
 
-                 vm.pc++;
-                 break;
+                vm.pc++;
+                break;
             }
             case SETFIELD: {
-                 printf("SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
 
 
-                 int offset = abc.b;
-                 int var_index = abc.c;
-                 int ref_index = abc.a;
+                int offset = abc.b;
+                int var_index = abc.c;
+                int ref_index = abc.a;
 
-                 uint64_t* header_ptr = (uint64_t*)get(&vm, ref_index);
+                uint64_t* header_ptr = (uint64_t*)get(&vm, ref_index);
 
-                 struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
+                struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
 
-                 obj->ref[offset] = (uint64_t *)get(&vm,var_index);
+                obj->ref[offset] = (uint64_t *)get(&vm,var_index);
 
-
-                 vm.pc++;
-                 break;
+                vm.pc++;
+                break;
             }
             case GETFIELD: {
-                printf("GETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
+                if(debug_level > 0)
+                    printf("GETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
 
                 int dst = abc.a;
                 int offset = abc.c;
@@ -484,32 +555,38 @@ int start(char *file) {
             }
             //------------------Run-Time Behavior------------------
             case BREAK:  {
-                printf("BREAK // not implmented\n");
+                if(debug_level > 0)
+                    printf("BREAK // not implmented\n");
                 vm.pc++;
                 break;
             }
             case EXIT: {
-                printf("Valid End Reached\n");
+                if(debug_level > 0)
+                    printf("Valid End Reached\n");
                 vm.pc++;
                 return 1;
             }
             case DROP: {
-                printf("DROP // not implmented\n");
+                if(debug_level > 0)
+                    printf("DROP // not implmented\n");
                 vm.pc++;
                 break;
             }
             case TRANC: {
-                printf("TRANC // not implmented\n");
+                if(debug_level > 0)
+                    printf("TRANC // not implmented\n");
                 vm.pc++;
                 break;
             }
             default: {
-                printf("skipping instruction: %d\n\n", op);
+                if(debug_level > 0)
+                    printf("skipping instruction: %d\n\n", op);
                 vm.pc++;
                 break;
             }
         }
-        print_slots(&vm.slots,vm.base);
+        if(debug_level > 0)
+            print_slots(&vm.slots,vm.base);
     }
 
     free_vm(&vm);

@@ -4,6 +4,8 @@
 #include <stdlib.h>
 
 #include "vm.h"
+#include "builtin.h"
+#include "debug.h"
 
 const uint8_t OBJ_MPS_TYPE_PADDING = 0x00;
 const uint8_t OBJ_MPS_TYPE_FORWARD = 0x01;

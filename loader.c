@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 
 #include "loader.h"
+#include "debug.h"
 
 struct parse_hdr {
 	uint32_t sec_id;
@@ -82,41 +83,45 @@ int parse(uint8_t *buf, struct sections *sec)
     //printf("offset: %zd\n", offset);
 
 	for (int i = 0; i < hdr_size; i++) {
-	    printf("-----------------------\n");
+	    if(debug_level > 0)
+	        printf("-----------------------\n");
 
         size_t len = ntohl(hdr[i].sec_len);
         uint32_t sec_id = ntohl(hdr[i].sec_id);
 
-        printf("sec_len: %zd\n",len);
-        printf("sec_id:  %d\n", sec_id);
+        //printf("sec_len: %zd\n",len);
+        //printf("sec_id:  %d\n", sec_id);
 
         uint32_t* section_cnt_ptr = (uint32_t*)(void *)(buf + offset);
 
-        printf("-----------\n");
+        //printf("-----------\n");
 
         uint32_t cnt = ntohl(*section_cnt_ptr);
 
-        printf("element count at offset, cnt:  %d\n", cnt);
+        //printf("element count at offset, cnt:  %d\n", cnt);
 
         uint32_t offset_add_one = offset + sizeof(uint32_t);
 
         uint32_t* section_data_ptr = (uint32_t*)(buf + offset_add_one);
 
-        printf("offset_add_one: %d \n", offset_add_one);
+        //printf("offset_add_one: %d \n", offset_add_one);
 
 	    switch(sec_id) {
 		  case SECTION_INSTRUCTIONS:
-		    printf("SECTION_INSTRUCTIONS  %d\n", cnt);
+		    if(debug_level > 0)
+		        printf("SECTION_INSTRUCTIONS  %d\n", cnt);
 		    sec->instr_cnt = cnt;
             sec->instr = (instr*)(void *) section_data_ptr;
-
-            //printf("offset: %zd\n", offset);
+            if(debug_level > 0)
+                //printf("offset: %zd\n", offset);
             offset = offset + len + sizeof(uint32_t);
-            //printf("offset: %zd\n", offset);
+            if(debug_level > 0)
+                //printf("offset: %zd\n", offset);
 
 			break;
 		  case SECTION_CINT:
-		    printf("SECTION_CINT  %d\n", cnt);
+		    if(debug_level > 0)
+		        printf("SECTION_CINT  %d\n", cnt);
 		    sec->cint_cnt = cnt;
             sec->cint = (int64_t *)(void *)section_data_ptr;
 			//printf("sec->cint: %ld\n", swap_int64( *sec->cint));
@@ -125,18 +130,23 @@ int parse(uint8_t *buf, struct sections *sec)
             offset = offset + len + sizeof(uint32_t);
             //printf("offset: %zd\n", offset);
 
-            for(int j = 0;j < cnt; j++) {
-                printf("int[%d]: %" PRId64 "\n",j, swap_int64(sec->cint[j]) );
+            if(debug_level > 0) {
+                for(int j = 0;j < cnt; j++) {
+                    printf("int[%d]: %" PRId64 "\n",j, swap_int64(sec->cint[j]) );
+                }
             }
+
 
 			break;
 		  case SECTION_CFLOAT:
-		    printf("SECTION_CFLOAT  %d\n", cnt);
+		    if(debug_level > 0)
+		        printf("SECTION_CFLOAT  %d\n", cnt);
 		    sec->cfloat_cnt = cnt;
 		    sec->cfloat = (double *)(void *)section_data_ptr;
 
             for(int j = 0;j < cnt; j++) {
-                printf("float[%d]: %f\n",j, swap(sec->cfloat[j]));
+                if(debug_level > 0)
+                    printf("float[%d]: %f\n",j, swap(sec->cfloat[j]));
             }
 
             //printf("offset: %zd\n", offset);
@@ -144,7 +154,8 @@ int parse(uint8_t *buf, struct sections *sec)
             //printf("offset: %zd\n", offset);
 			break;
 		  case SECTION_CSTR:
-		    printf("SECTION_CSTR  %d\n", cnt);
+		    if(debug_level > 0)
+		        printf("SECTION_CSTR  %d\n", cnt);
             uint32_t* start_of_index = (uint32_t*)(void *)section_data_ptr;
 
             uint32_t* start_of_character_data_32 = start_of_index + cnt + 1; // 1 for HEADER_SIZE of character section
@@ -160,8 +171,8 @@ int parse(uint8_t *buf, struct sections *sec)
                         charskip = ntohl(*(start_of_index + j-1));
 
                    strptr[j] = start_of_character_data_8 + charskip;
-
-                   printf("str[%d] (address %p) : %s\n",j, strptr[j] , strptr[j]);
+                   if(debug_level > 0)
+                        printf("str[%d] (address %p) : %s\n",j, strptr[j] , strptr[j]);
             }
 
             sec->cstr_cnt = cnt;
@@ -178,7 +189,8 @@ int parse(uint8_t *buf, struct sections *sec)
 
 
 		  case SECTION_CKEY:
-		    printf("SECTION_CKEYR  %d\n", cnt);
+		    if(debug_level > 0)
+		        printf("SECTION_CKEYR  %d\n", cnt);
             uint32_t* keys_start_of_index = (uint32_t*)(void *)section_data_ptr;
             uint32_t* keys_start_of_character_data_32 = keys_start_of_index + cnt + 1; // 1 for HEADER_SIZE of character section
             uint8_t*  keys_start_of_character_data_8 = (uint8_t*)(void *)keys_start_of_character_data_32;
@@ -193,7 +205,8 @@ int parse(uint8_t *buf, struct sections *sec)
 
                    keyptr[j] = (char*)(void*)(keys_start_of_character_data_8 + charskip);
 
-                   printf("key[%d]: %s\n",j, keyptr[j]);
+                   if(debug_level > 0)
+                        printf("key[%d]: %s\n",j, keyptr[j]);
             }
             sec->ckey_cnt = cnt;
             sec->ckey     = keyptr;
@@ -210,7 +223,8 @@ int parse(uint8_t *buf, struct sections *sec)
             //printf("offset: %zd\n", offset);
             break;
 		  case SECTION_VTABLES:
-            printf("SECTION_VTABLES  %d\n", cnt);
+		    if(debug_level > 0)
+                printf("SECTION_VTABLES  %d\n", cnt);
             sec->vtable = NULL;
             sec->vtable_cnt = cnt;
             for(int j = 0;j < cnt; j++) {
@@ -219,7 +233,9 @@ int parse(uint8_t *buf, struct sections *sec)
               uint32_t protocol_nr = ntohl(*(section_data_ptr + 1));
               uint32_t type_nr = ntohl(*(section_data_ptr + 2));
 
-              printf("protocol_nr: %d type_nr: %d  jump_offset: %d\n",protocol_nr, type_nr,jump_offset);
+              if(debug_level > 0)
+                    printf("protocol_nr: %d type_nr: %d  jump_offset: %d\n",protocol_nr, type_nr,jump_offset);
+
               uint64_t look_up_pair = (uint64_t) protocol_nr << 32 |  (uint64_t) type_nr;
 
               struct vtable_record *record = malloc(sizeof(struct vtable_record));
@@ -237,14 +253,16 @@ int parse(uint8_t *buf, struct sections *sec)
 
 			break;
 		  case SECTION_TYPES:
-            printf("SECTION_TYPES  %d\n", cnt);
+		    if(debug_level > 0)
+                printf("SECTION_TYPES  %d\n", cnt);
 
             sec->types = NULL;
             sec->types_cnt = cnt;
             for(int j = 0;j < cnt; j++) {
               uint32_t t_id = ntohl(*(section_data_ptr + 1));
               uint32_t type_size = ntohl(*section_data_ptr);
-              printf("type_id: %d type_size: %d\n", t_id, type_size);
+              if(debug_level > 0)
+                    printf("type_id: %d type_size: %d\n", t_id, type_size);
               struct type_record *record = malloc(sizeof(struct type_record));
               record->type_id = t_id;
               record->type_size = (type_size * 8) + 8;
@@ -253,16 +271,19 @@ int parse(uint8_t *buf, struct sections *sec)
             }
             break;
 		  default:
-		    printf("default\n");
+		    if(debug_level > 0)
+		        printf("default\n");
 			return EINVAL;
 		}
 	}
 
-    printf("-----------end of loader ---------------t\n");
-    for(int j = 0;j < 2; j++) {
-        printf("float[%d]: %p\n",j, (void *) (sec->cfloat + j) );
-    }
-    printf("-----------end of loader ---------------t\n\n");
+	if(debug_level > 0) {
+        printf("-----------end of loader ---------------t\n");
+        for(int j = 0;j < 2; j++) {
+            printf("float[%d]: %p\n",j, (void *) (sec->cfloat + j) );
+        }
+        printf("-----------end of loader ---------------t\n\n");
+	}
 
 	return 0;
 }

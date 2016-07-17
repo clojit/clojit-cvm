@@ -8,11 +8,11 @@ CFLAGS+=-g -O2 -std=c11
 CFLAGS+=-I$(MPS_KIT)/code
 CFLAGS+=-pedantic  -Wshadow -Wpointer-arith -Wcast-qual \
         -Wstrict-prototypes -Wmissing-prototypes
-CFLAGS+=$(SANFLAGS)
+#CFLAGS+=$(SANFLAGS)
 CFLAGS+=$(shell pkg-config --cflags glib-2.0)
 
 LDFLAGS+=-lpthread
-LDFLAGS+=$(SANFLAGS)
+#LDFLAGS+=$(SANFLAGS)
 LDFLAGS+=$(shell pkg-config --libs glib-2.0)
 
 OBJS=  main.o
@@ -26,6 +26,7 @@ OBJS+= print.o
 OBJS+= alloc.o
 OBJS+= namespace.o
 OBJS+= builtin.o
+OBJS+= debug.o
 
 all: main
 

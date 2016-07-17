@@ -10,5 +10,6 @@
 
 void print_slot(uint64_t slot);
 void print_slots(Slots* s, uint64_t base);
+void println_slot(uint64_t slot);
 
 #endif

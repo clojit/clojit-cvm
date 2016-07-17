@@ -5,6 +5,7 @@
 #include <inttypes.h>
 
 #include "stack.h"
+#include "debug.h"
 
 void stack_init(Stack *stack) {
   stack->top = 0;

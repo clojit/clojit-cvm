@@ -6,6 +6,7 @@
 #include "slots.h"
 #include "vm.h"
 #include "alloc.h"
+#include "debug.h"
 
 const uint16_t TAG_DOUBLE_MAX    = 0xFFF8;
 const uint16_t TAG_DOUBLE_MIN    = 0x0007;
