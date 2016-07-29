@@ -1,0 +1,109 @@
+-------------host-interop---------------
+node: {:children [:target],
+ :op :host-interop,
+ :m-or-f a,
+ :result 6,
+ :top-level true,
+ :form (. (->TestT 6) a),
+ :assignable? true,
+ :raw-forms ((.a (->TestT 6)))}
+slot: 0
+env: {}
+-------------invoke-:default---------------
+node: {:op :invoke,
+ :form (->TestT 6),
+ :env
+ {:context :ctx/expr,
+  :locals {},
+  :ns user,
+  :file "/tmp/form-init3165465050859928660.clj"},
+ :fn
+ {:op :var,
+  :var
+  #<Var@3e966e67: 
+    #object[user$eval12798$__GT_TestT__12800 0x1786e49f "user$eval12798$__GT_TestT__12800@1786e49f"]>,
+  :meta
+  {:arglists ([a]),
+   :doc "Positional factory function for class user.TestT.",
+   :file "/tmp/form-init3165465050859928660.clj",
+   :line 1,
+   :column 113,
+   :name ->TestT,
+   :ns #object[clojure.lang.Namespace 0x3741a170 "user"]},
+  :env
+  {:context :ctx.invoke/target,
+   :locals {},
+   :ns user,
+   :file "/tmp/form-init3165465050859928660.clj"},
+  :form ->TestT,
+  :assignable? false,
+  :o-tag java.lang.Object,
+  :arglists ([a])},
+ :args
+ [{:op :const,
+   :env
+   {:context :ctx.invoke/param,
+    :locals {},
+    :ns user,
+    :file "/tmp/form-init3165465050859928660.clj"},
+   :type :number,
+   :literal? true,
+   :val 6,
+   :form 6,
+   :o-tag long,
+   :tag java.lang.Long}],
+ :children [:fn :args],
+ :o-tag java.lang.Object}
+slot: 0
+env: {}
+(ccompile (:target node) slot env) =
+[[[[{:op :NSGET, :a 1, :d 0}]]
+  ({:op :CSHORT, :a 2, :d 6})
+  [{:op :CALL, :a 0, :d 2}]]]
+------------------
+bytecode: 
+------------------
+------------------
+Types
+------------------
+Name: TestT Nr: 0
+Protocols:
+ 
+------------------
+
+------------------
+CONSTANT TABLE
+------------------
+{:CSTR ["->TestT"], :vtable {}, :CFLOAT [], :CKEY [], :CINT []}
+------------------
+
+
+------------------
+BYTECODE
+------------------
+000       :FNEW     0              7 ==> 007   12797
+001      :NSSET     0              0
+002      :CTYPE     0              0
+003      :NSGET     1              0
+004     :CSHORT     2              6
+005       :CALL     0              2
+006       :EXIT     0               
+007      :FUNCF     1               
+008      :CTYPE     3              0
+009      :ALLOC     3              3
+010        :MOV     4              2
+011   :SETFIELD     3      0       4
+012        :RET     3               
+------------------
+
+------------------
+TYPES
+------------------
+[{:type-id 0, :size 1}]
+------------------
+
+------------------
+VTABLE
+------------------
+[]
+------------------

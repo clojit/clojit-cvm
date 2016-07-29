@@ -1,0 +1,50 @@
+{"0"
+ [{:op :CSHORT, :a 0, :d 2}
+  {:op :JUMPF, :a 0, :d 3}
+  {:op :CSHORT, :a 0, :d 1}
+  {:op :JUMP, :a nil, :d 2}
+  {:op :CSHORT, :a 0, :d 0}
+  {:op :EXIT, :a 0, :d nil}]}
+
+(get fn-map 0) = [{:op :CSHORT, :a 0, :d 2} {:op :JUMPF, :a 0, :d 3} {:op :CSHORT, :a 0, :d 1} {:op :JUMP, :a nil, :d 2} {:op :CSHORT, :a 0, :d 0} {:op :EXIT, :a 0, :d nil}]
+(vals (dissoc fn-map 0)) = nil
+[{:op :CSHORT, :a 0, :d 2}
+ {:op :JUMPF, :a 0, :d 3}
+ {:op :CSHORT, :a 0, :d 1}
+ {:op :JUMP, :a nil, :d 2}
+ {:op :CSHORT, :a 0, :d 0}
+ {:op :EXIT, :a 0, :d nil}]
+------------------
+------------------
+Types
+------------------
+
+------------------
+CONSTANT TABLE
+------------------
+{:CSTR [], :vtable {}, :CFLOAT [], :CKEY [], :CINT []}
+------------------
+
+
+------------------
+BYTECODE
+------------------
+000     :CSHORT     0              2
+001      :JUMPF     0              3 ==> 004
+002     :CSHORT     0              1
+003       :JUMP                    2 ==> 005
+004     :CSHORT     0              0
+005       :EXIT     0               
+------------------
+
+------------------
+TYPES
+------------------
+[]
+------------------
+
+------------------
+VTABLE
+------------------
+[]
+------------------
