@@ -149,7 +149,11 @@ Context get_context(VM *vm) {
 ////////////////////////////////////////////
 
 uint64_t get(VM *vm, uint32_t index) {
+    //fprintf(stderr, "->  get  base<%d> + index<%d> = %d <-\n", vm->base, index,  (vm->base + index) );
     return slots_get( &(vm->slots), (vm->base + index));
+}
+uint64_t* get_ptr(VM *vm, uint32_t index) {
+    return slots_get_ptr( &(vm->slots), (vm->base + index));
 }
 
 void set(VM *vm, uint32_t index, uint64_t value) {
@@ -180,42 +184,40 @@ void vm_init(VM *vm, size_t arenasize) {
 
     // -------------------------- ARENA ----------------------------
     res = mps_create_vm_area(&vm->arena, arenasize);
-    if (res != MPS_RES_OK) printf("Couldn't create arena");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create arena");
 
     // ------------------ GRATE GENERATION CHAIN --------------------------
     res = mps_chain_create(&vm->obj_chain,
                            vm->arena,
                            LENGTH(obj_gen_params),
                            obj_gen_params);
-    if (res != MPS_RES_OK) printf("Couldn't create obj chain");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create obj chain");
 
     // ------------- CONSERVATIVE SCAN THREAD STACK AND REG ---------------
     res = mps_thread_reg(&vm->thread, vm->arena);
-    if (res != MPS_RES_OK) printf("Couldn't register thread");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't register thread");
     res = mps_root_create_reg(&vm->reg_root,vm->arena,mps_rank_ambig(),0,vm->thread,mps_stack_scan_ambig,marker,0);
-    if (res != MPS_RES_OK) printf("Couldn't create root");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create root");
 
     // ---------------------- CREATE OBJ FORMAT -------------------------
     res = mps_create_obj_fmt(&vm->obj_fmt, vm->arena);
-    if (res != MPS_RES_OK) printf("Couldn't create Obj Format");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create Obj Format");
 
     // ---------------------- CREATE AMC POOL -------------------------
     Pool amc = {0};
     res = mps_create_amc_pool(&amc.pool, vm->obj_fmt, vm->obj_chain, vm->arena);
-    if (res != MPS_RES_OK) printf("Couldn't create obj pool (amc)");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create obj pool (amc)");
     res = mps_create_ap(&amc.ap, amc.pool);
-    if (res != MPS_RES_OK) printf("Couldn't create obj allocation point (amc)");
-    vm->amc = &amc;
-
-    // ---------------------- CREATE AMC Allocation Point -------------------------
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create obj allocation point (amc)");
+    vm->amc = amc;
 
     // ---------------------- CREATE AMCZ POOL -------------------------
     Pool amcz = {0};
     res = mps_create_amcz_pool(&amcz.pool, vm->obj_fmt, vm->obj_chain, vm->arena);
-    if (res != MPS_RES_OK) printf("Couldn't create obj pool (amcz)");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create obj pool (amcz)");
     res = mps_create_ap(&amcz.ap,amcz.pool);
-    if (res != MPS_RES_OK) printf("Couldn't create obj allocation point (amcz)");
-    vm->amcz = &amcz;
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create obj allocation point (amcz)");
+    vm->amcz = amcz;
 
     // ---------------------- INIT SLOTS -------------------------
     Slots slots = {0};
@@ -231,11 +233,10 @@ void vm_init(VM *vm, size_t arenasize) {
 
     vm->stack = stack;
 
-
     // ------------------- Symbol Table ----------------------
      vm->symbol_table = g_hash_table_new(g_str_hash, g_str_equal);
 
-     add_builtin_function((void *) vm); //TODO GANDRO
+     add_builtin_function(vm);
 }
 
 void free_vm (VM *vm) {
@@ -247,11 +248,11 @@ void free_vm (VM *vm) {
     mps_fmt_destroy(vm->obj_fmt);
     mps_arena_destroy(vm->arena);
 
-    mps_ap_destroy(vm->amc->ap);
-    mps_pool_destroy(vm->amc->pool);
+    mps_ap_destroy(vm->amc.ap);
+    mps_pool_destroy(vm->amc.pool);
 
-    mps_ap_destroy(vm->amcz->ap);
-    mps_pool_destroy(vm->amcz->pool);
+    mps_ap_destroy(vm->amcz.ap);
+    mps_pool_destroy(vm->amcz.pool);
 
     free(vm);
 }

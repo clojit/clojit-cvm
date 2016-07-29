@@ -23,8 +23,8 @@ typedef struct vm {
     mps_thr_t thread;
     mps_root_t reg_root;
 
-    Pool* amc;
-    Pool* amcz;
+    Pool amc;
+    Pool amcz;
 
     uint32_t pc;
     uint32_t ip;
@@ -95,6 +95,8 @@ void set_context(VM *vm, Context* ctx);
 Context get_context(VM *vm);
 
 uint64_t get(VM *vm, uint32_t index);
+uint64_t* get_ptr(VM *vm, uint32_t index);
+
 void set(VM *vm, uint32_t index, uint64_t value);
 void move(VM *vm, uint32_t to, uint32_t from);
 

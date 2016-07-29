@@ -65,6 +65,7 @@ void add_type_record(struct sections* section, struct type_record *v);
 struct vtable_record *get_vtable_record(struct sections* section, uint64_t lup);
 void add_vtable_record(struct sections* section, struct vtable_record *v);
 
+uint64_t composeKey(uint16_t vfunc, uint16_t type_int);
 
 
 #endif /* _LOADER_H_*/

@@ -21,7 +21,7 @@ void push(Stack *stack, Context ctx) {
 Context pop(Stack *stack) {
     stack->top--;
     if(stack->top < 0) {
-        printf("Index %d out of bounds for stack of top %d\n",stack->top,stack->top);
+        fprintf(stderr,"Index %d out of bounds for stack of top %d\n",stack->top,stack->top);
         exit(1);
     }
     return stack->data[stack->top];

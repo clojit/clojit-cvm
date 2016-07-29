@@ -8,8 +8,8 @@
 #include "vm.h"
 #include "mps.h"
 #include "mpsavm.h"
-#include "loader.h"
 #include "debug.h"
+#include "loader.h"
 
 int start(char *file) {
     struct sections sec = {0};
@@ -17,7 +17,7 @@ int start(char *file) {
     mps_res_t res;
 
     res = loadfile(file, &sec);
-    if (res != MPS_RES_OK) printf("Couldn't load file");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't load file");
 
     VM vm = {0};
 
@@ -26,7 +26,7 @@ int start(char *file) {
     vm_init(&vm, arenasize);
 
     if(debug_level > 0)
-        printf("------------SLOT--------------\n");
+        fprintf(stderr,"------------SLOT--------------\n");
 
     while (1) {
 
@@ -45,7 +45,7 @@ int start(char *file) {
             case CSTR: {
                 uint16_t d = ntohs(ad.d);
                 if(debug_level > 0)
-                    printf("CSTR: %d %d -> %s\n", ad.a, d, sec.cstr[d]);
+                    fprintf(stderr,"CSTR: %d %d -> %s\n", ad.a, d, sec.cstr[d]);
 
                 //TODO REAL STRING HANDLING
                 //set(&vm, ad.a,   (uint64_t)(void*)sec.cstr[d] );
@@ -59,7 +59,7 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
 
                 if(debug_level > 0)
-                    printf("CKEY: %d %d\n", ad.a, d);
+                    fprintf(stderr,"CKEY: %d %d\n", ad.a, d);
                 set(&vm, ad.a, (uint64_t)(void*)sec.cstr[d] );
 
 
@@ -83,7 +83,7 @@ int start(char *file) {
             case CTYPE: {
                 uint16_t d = ntohs(ad.d);
                 if(debug_level > 0)
-                    printf("CTYPE: %d %d\n", ad.a, d);
+                    fprintf(stderr,"CTYPE: %d %d\n", ad.a, d);
 
                 set(&vm,ad.a,to_type(d));
 
@@ -94,14 +94,14 @@ int start(char *file) {
             case CBOOL: {
                 uint16_t d = ntohs(ad.d);
                 if(debug_level > 0)
-                    printf("CBOOL: %d %d\n", ad.a, d);
+                    fprintf(stderr,"CBOOL: %d %d\n", ad.a, d);
                 set(&vm,ad.a,to_bool(d));
                 vm.pc++;
                 break;
             }
             case CNIL : {
                 if(debug_level > 0)
-                    printf("CNIL: %d\n", ad.a);
+                    fprintf(stderr,"CNIL: %d\n", ad.a);
                 set(&vm,ad.a,get_nil());
                 vm.pc++;
                 break;
@@ -112,7 +112,7 @@ int start(char *file) {
                 uint64_t d = (uint64_t) d16;
 
                 if(debug_level > 0)
-                    printf("CSHORT: %d %d\n", ad.a, d16);
+                    fprintf(stderr,"CSHORT: %d %d\n", ad.a, d16);
                 set(&vm,target_slot,to_small_int(d));
 
                 vm.pc++;
@@ -122,7 +122,7 @@ int start(char *file) {
             case NSSET: {
                 uint16_t d = ntohs(ad.d);
                 if(debug_level > 0)
-                    printf("NSSET: %d %d\n", ad.a, d);
+                    fprintf(stderr,"NSSET: %d %d                              -> %s\n", ad.a, d, sec.cstr[d]);
 
                 add_symbol_table_pair(&vm, sec.cstr[d], get(&vm,ad.a));
 
@@ -133,7 +133,7 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
 
                 if(debug_level > 0)
-                    printf("NSGET: %d %d -> %s\n ", ad.a, d, sec.cstr[d]);
+                    fprintf(stderr,"NSGET: %d %d                              -> %s\n ", ad.a, d, sec.cstr[d]);
 
                 set(&vm,ad.a, get_symbol_table(&vm, sec.cstr[d]));
 
@@ -147,7 +147,7 @@ int start(char *file) {
                 uint64_t cslot = get(&vm,abc.c);
 
                 if(debug_level > 0)
-                    printf("ADDVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                    fprintf(stderr,"ADDVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot))
                     set(&vm, target_slot, to_small_int(get_small_int(bslot) + get_small_int(cslot)));
@@ -170,7 +170,7 @@ int start(char *file) {
                 uint64_t cslot = get(&vm,abc.c);
 
                 if(debug_level > 0)
-                    printf("SUBVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                    fprintf(stderr,"SUBVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot) )
                     set(&vm,target_slot, to_small_int(get_small_int(bslot) - get_small_int(cslot)));
@@ -193,7 +193,7 @@ int start(char *file) {
                 uint64_t cslot = get(&vm,abc.c);
 
                 if(debug_level > 0)
-                    printf("MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                    fprintf(stderr,"MULVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot))
                     set(&vm,target_slot,to_small_int(get_small_int(bslot) * get_small_int(cslot)));
@@ -217,12 +217,12 @@ int start(char *file) {
                 uint64_t cslot = get(&vm,abc.c);
 
                 if(debug_level > 0)
-                    printf("MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                    fprintf(stderr,"MODVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 if (is_small_int(bslot) && is_small_int(cslot)) {
                     set(&vm,target_slot, to_small_int(get_small_int(bslot) % get_small_int(cslot)));
                 } else {
-                    printf("Type Error. Called Modulo with Float\n");
+                    fprintf(stderr,"Type Error. Called Modulo with Float\n");
                     exit(1);
                 }
 
@@ -231,7 +231,7 @@ int start(char *file) {
             }
             case DIVVV: {
                 if(debug_level > 0)
-                    printf("DIVVV: %d %d %d\n", abc.a, abc.b, abc.c);
+                    fprintf(stderr,"DIVVV: %d %d %d\n", abc.a, abc.b, abc.c);
 
                 int target_slot = abc.a;
                 uint64_t bslot = get(&vm,abc.b);
@@ -254,7 +254,7 @@ int start(char *file) {
             }
             case ISEQ: {
                 if(debug_level > 0)
-                    printf("ISEQ: %d %d %d\n", abc.a, abc.b, abc.c);
+                    fprintf(stderr,"ISEQ: %d %d %d\n", abc.a, abc.b, abc.c);
                 int target_slot = abc.a;
                 uint64_t bslot = get(&vm,abc.b);
                 uint64_t cslot = get(&vm,abc.c);
@@ -270,7 +270,7 @@ int start(char *file) {
                     break;
                 }
 
-                printf("Type Error ISEQ can only called with all Ints or all Double");
+                fprintf(stderr,"Type Error ISEQ can only called with all Ints or all Double");
                 return 1;
 
             }
@@ -280,7 +280,7 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
 
                 if(debug_level > 0)
-                    printf("MOV: %d %d\n",target_slot, d);
+                    fprintf(stderr,"MOV: %d %d\n",target_slot, d);
 
                 move(&vm, target_slot, d);
 
@@ -289,7 +289,7 @@ int start(char *file) {
             }
             case NOT: {
                 if(debug_level > 0)
-                    printf("NOT // not implmented\n");
+                    fprintf(stderr,"NOT // not implmented\n");
                 vm.pc++;
                 break;
             }
@@ -297,7 +297,7 @@ int start(char *file) {
             case JUMP: {
                 uint16_t d = ntohs(ad.d);
                 if(debug_level > 0)
-                    printf("JUMP: %d\n",d);
+                    fprintf(stderr,"JUMP: %d\n",d);
                 int16_t offset = (int16_t) d;
 
                 uint32_t new_pc = vm.pc + offset;
@@ -309,7 +309,7 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 int16_t offset = (int16_t) d;
                 if(debug_level > 0)
-                    printf("JUMPF: %d %d\n",ad.a,offset);
+                    fprintf(stderr,"JUMPF: %d %d\n",ad.a,offset);
 
                 if(is_falsy( get(&vm,ad.a) )) {
                     vm.pc = vm.pc + offset;
@@ -322,7 +322,7 @@ int start(char *file) {
                 uint16_t d = ntohs(ad.d);
                 int16_t offset = (int16_t) d;
                 if(debug_level > 0)
-                    printf("JUMPT: %d %d\n",ad.a,offset);
+                    fprintf(stderr,"JUMPT: %d %d\n",ad.a,offset);
 
                 if(is_truthy(get(&vm,ad.a))) {
                     vm.pc = vm.pc + offset;
@@ -337,7 +337,7 @@ int start(char *file) {
                 uint16_t lit = ntohs(ad.d);
 
                 if(debug_level > 0)
-                    printf("CALL %d %d", localbase, lit);
+                    fprintf(stderr,"CALL %d %d", localbase, lit);
 
                 set(&vm,localbase, to_small_int(vm.pc));
 
@@ -346,43 +346,52 @@ int start(char *file) {
                 uint16_t func = 0;
                 if(is_fnew(fn_slot)) {
                     if(debug_level > 0)
-                        printf(" -> is func\n");
+                        fprintf(stderr,"                               -> is func\n");
                     func = get_fnew(fn_slot);
                 } else if(is_builtin(fn_slot)) {
                     if(debug_level > 0)
-                        printf(" -> is builtin\n");
+                        fprintf(stderr,"                               -> is builtin\n");
                     func = 0;
+                } else if(is_vfunc(fn_slot)) {
+
+                    if(debug_level > 0)
+                        fprintf(stderr, "                              -> is vfunc\n");
+
+                    uint16_t vfunc = get_vfunc(fn_slot);
+
+                    uint64_t obj_slot = get(&vm, localbase+2);
+
+                    struct obj_stub  *obj = (struct obj_stub *) (void *) obj_slot;
+
+                    uint16_t type_int = obj->cljtype;
+                    
+                    uint64_t key = composeKey(vfunc, type_int);
+
+                    struct vtable_record * record = get_vtable_record(&sec, key);
+
+                    func = record->jump_offset;
                 } else {
                     print_slots(&vm.slots, vm.base);
-                    printf("\nCALL ERROR NO FUNC\n\n");
+                    fprintf(stderr,"\nCALL ERROR NO FUNC\n\n");
                     exit(0);
                 }
 
-                //printf("func now %d\n", func);
-
                 Context old = get_context(&vm);
-                //printf("old context base %d\n", old.base_slot );
-                //printf("old context ip %d\n", old.ip );
                 push(&vm.stack, old);
 
                 uint32_t newbase = vm.base + localbase;
-                //printf("newbase: %d\n\n", newbase);
 
                 Context newContext = { .base_slot = newbase, .ip = func };
                 set_context(&vm, &newContext);
-                //printf("new context base %d\n\n", newContext.base_slot );
-                //printf("new context ip %d\n\n", newContext.ip );
 
                 if(func == 0) {
                     builtin_fn f =  get_builtin(fn_slot);
                     f(&vm);
 
                     for(int i = 2; i != (localbase + 10); i++) {
-                        //printf("set %d to nil\n\n");
                         set(&vm, i, get_nil());
                     }
 
-                    //printf("restore old context\n\n");
                     Context caller = pop(&vm.stack);
                     set_context(&vm, &caller);
 
@@ -390,7 +399,7 @@ int start(char *file) {
 
                 } else {
                     if(debug_level > 0)
-                        printf("func %d\n\n", func);
+                        fprintf(stderr,"func %d\n\n", func);
                     vm.pc = func;
                 }
 
@@ -398,8 +407,11 @@ int start(char *file) {
             }
             case RET: {
                 uint8_t a = ad.a;
-                if(debug_level > 0)
-                    printf("RET %d\n", a);
+                if(debug_level > 0) {
+                    fprintf(stderr,"RET %d                                 -> ", a);
+                    print_slot(get(&vm,a));
+                    fprintf(stderr,"\n");
+                }
 
                 uint32_t ret_addr = get_small_int( get(&vm,0) );
 
@@ -415,7 +427,7 @@ int start(char *file) {
             }
             case APPLY: {
                 if(debug_level > 0)
-                    printf("APPLY // not implmented\n");
+                    fprintf(stderr,"APPLY // not implmented\n");
                 vm.pc++;
                 break;
             }
@@ -427,7 +439,7 @@ int start(char *file) {
                 int16_t offset = (int16_t) d;
 
                 if(debug_level > 0)
-                    printf("FNEW %d %d\n", ad.a, offset);
+                    fprintf(stderr,"FNEW %d %d\n", ad.a, offset);
 
                 set(&vm, ad.a, to_fnew(offset));
 
@@ -435,26 +447,38 @@ int start(char *file) {
                 break;
             }
             case VFNEW: {
+
+                uint16_t d = ntohs(ad.d);
+                int16_t offset = (int16_t) d;
+
                 if(debug_level > 0)
-                    printf("VFNEW // not implmented\n");
-                vm.pc++; break;
+                    fprintf(stderr,"VFNEW %d %d\n",ad.a, ntohs(ad.d));
+
+                //let vfunc = args.d as int;
+                //vm.slots[args.a] = VFunc(vfunc as uint);
+                //vm.fetch_next()
+
+                set(&vm, ad.a, to_vfunc(offset) );
+                vm.pc++;
+                break;
             }
             case GETFREEVAR: {
                 if(debug_level > 0)
-                    printf("GETFREEVAR // not implmented\n");
+                    fprintf(stderr,"GETFREEVAR // not implmented\n");
                 vm.pc++;
                 break;
             }
             case UCLO: {
                 if(debug_level > 0)
-                    printf("UCLO // not implmented\n");
+                    fprintf(stderr,"UCLO // not implmented\n");
                 vm.pc++;
                 break;
                 }
             //------------------Tail Recursion and Loops------------------
             case LOOP: {
                 if(debug_level > 0)
-                    printf("LOOP\n");
+                    fprintf(stderr,"LOOP\n");
+                vm.pc++;
                 break;
             }
             case BULKMOV: {
@@ -462,26 +486,26 @@ int start(char *file) {
                     move(&vm, abc.a+i, abc.b+i);
                 }
                 if(debug_level > 0)
-                    printf("BULKMOV: %d %d %d\n", abc.a, abc.b, abc.c);
+                    fprintf(stderr,"BULKMOV: %d %d %d\n", abc.a, abc.b, abc.c);
                 vm.pc++;
                 break;
             }
             //------------------Arrays------------------
             case NEWARRAY:{
                 if(debug_level > 0)
-                    printf("NEWARRAY // not implmented\n");
+                    fprintf(stderr,"NEWARRAY // not implmented\n");
                 vm.pc++;
                 break;
             }
             case GETARRAY: {
                 if(debug_level > 0)
-                    printf("GETARRAY // not implmented\n");
+                    fprintf(stderr,"GETARRAY // not implmented\n");
                 vm.pc++;
                 break;
             }
             case SETARRAY:{
                 if(debug_level > 0)
-                    printf("SETARRAY // not implmented\n");
+                    fprintf(stderr,"SETARRAY // not implmented\n");
                 vm.pc++;
                 break;
             }
@@ -489,58 +513,44 @@ int start(char *file) {
             //------------------Function Def------------------
             case FUNCF:{
                 if(debug_level > 0)
-                    printf("FUNCF\n");
+                    fprintf(stderr,"FUNCF\n");
                 vm.pc++;
                 break;
             }
             case FUNCV:{
                 if(debug_level > 0)
-                    printf("FUNCV\n");
+                    fprintf(stderr,"FUNCV\n");
                 vm.pc++;
                 break;
             }
             //------------------Types------------------
             case ALLOC: {
                 uint16_t d = ntohs(ad.d);
+
                 if(debug_level > 0)
-                    printf("ALLOC: %d %d\n",ad.a,d);
+                    fprintf(stderr,"ALLOC: %d %d\n",ad.a,d);
+
                 int target_slot = ad.a;
 
-                struct type_record type = sec.types[d];
+                uint16_t type_index = get_type(get(&vm, d));
 
-                uint64_t alloc_slot = get(&vm, target_slot);
+                struct type_record type = sec.types[type_index];
 
-                res = mps_alloc_obj((mps_addr_t*)(void*)&alloc_slot,
-                                     vm.amc->ap,
+                uint64_t* alloc_slot_ptr = get_ptr(&vm, target_slot);
+
+                res = mps_alloc_obj((mps_addr_t*)(void*)alloc_slot_ptr,
+                                     vm.amc.ap,
                                      type.type_size,
                                      type.type_id,
                                      OBJ_MPS_TYPE_OBJECT);
-                if (res != MPS_RES_OK) printf("Could't not allocate obj\n");
-
-                vm.pc++;
-                break;
-            }
-            case SETFIELD: {
-                if(debug_level > 0)
-                    printf("SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
-
-
-                int offset = abc.b;
-                int var_index = abc.c;
-                int ref_index = abc.a;
-
-                uint64_t* header_ptr = (uint64_t*)get(&vm, ref_index);
-
-                struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
-
-                obj->ref[offset] = (uint64_t *)get(&vm,var_index);
+                if (res != MPS_RES_OK) fprintf(stderr,"Could't not allocate obj\n");
 
                 vm.pc++;
                 break;
             }
             case GETFIELD: {
                 if(debug_level > 0)
-                    printf("GETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
+                    fprintf(stderr,"GETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
 
                 int dst = abc.a;
                 int offset = abc.c;
@@ -553,40 +563,62 @@ int start(char *file) {
                 vm.pc++;
                 break;
             }
+            case SETFIELD: {
+                if(debug_level > 0)
+                    fprintf(stderr,"SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
+
+
+                int offset = abc.b;
+                int var_index = abc.c;
+                int ref_index = abc.a;
+
+                uint64_t* header_ptr = (uint64_t*) get(&vm, ref_index);
+
+                struct obj_stub  *obj = (struct obj_stub *) (void *) header_ptr;
+
+                obj->ref[offset] = (uint64_t *)get(&vm,var_index);
+
+                vm.pc++;
+                break;
+            }
             //------------------Run-Time Behavior------------------
             case BREAK:  {
                 if(debug_level > 0)
-                    printf("BREAK // not implmented\n");
+                    fprintf(stderr,"BREAK // not implmented\n");
                 vm.pc++;
                 break;
             }
             case EXIT: {
                 if(debug_level > 0)
-                    printf("Valid End Reached\n");
+                    fprintf(stderr,"Valid End Reached\n");
                 vm.pc++;
                 return 1;
             }
             case DROP: {
                 if(debug_level > 0)
-                    printf("DROP // not implmented\n");
+                    fprintf(stderr,"DROP // not implmented\n");
                 vm.pc++;
                 break;
             }
             case TRANC: {
                 if(debug_level > 0)
-                    printf("TRANC // not implmented\n");
+                    fprintf(stderr,"TRANC // not implmented\n");
                 vm.pc++;
                 break;
             }
             default: {
                 if(debug_level > 0)
-                    printf("skipping instruction: %d\n\n", op);
+                    fprintf(stderr,"skipping instruction: %d\n\n", op);
                 vm.pc++;
                 break;
             }
         }
-        if(debug_level > 0)
+        if(debug_level > 0) {
             print_slots(&vm.slots,vm.base);
+            fprintf(stderr,"\n");
+        }
+
+
     }
 
     free_vm(&vm);

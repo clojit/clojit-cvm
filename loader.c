@@ -23,12 +23,16 @@ struct vtable {
 };
 
 void add_vtable_record(struct sections* section, struct vtable_record *v) {
-    HASH_ADD_INT(section->vtable, look_up_pair, v );
+    HASH_ADD_INT(section->vtable, look_up_pair, v);
+}
+
+uint64_t composeKey(uint16_t vfunc, uint16_t type_int) {
+    return   (uint64_t) vfunc << 32 | (uint64_t) type_int;
 }
 
 struct vtable_record *get_vtable_record(struct sections* section, uint64_t lup) {
     struct vtable_record *s;
-    HASH_FIND_INT(section->vtable,&lup, s );
+    HASH_FIND_INT(section->vtable,&lup,s);
     return s;
 }
 
@@ -84,7 +88,7 @@ int parse(uint8_t *buf, struct sections *sec)
 
 	for (int i = 0; i < hdr_size; i++) {
 	    if(debug_level > 0)
-	        printf("-----------------------\n");
+            fprintf(stderr,"-----------------------\n");
 
         size_t len = ntohl(hdr[i].sec_len);
         uint32_t sec_id = ntohl(hdr[i].sec_id);
@@ -109,7 +113,7 @@ int parse(uint8_t *buf, struct sections *sec)
 	    switch(sec_id) {
 		  case SECTION_INSTRUCTIONS:
 		    if(debug_level > 0)
-		        printf("SECTION_INSTRUCTIONS  %d\n", cnt);
+                fprintf(stderr,"SECTION_INSTRUCTIONS  %d\n", cnt);
 		    sec->instr_cnt = cnt;
             sec->instr = (instr*)(void *) section_data_ptr;
             if(debug_level > 0)
@@ -121,7 +125,7 @@ int parse(uint8_t *buf, struct sections *sec)
 			break;
 		  case SECTION_CINT:
 		    if(debug_level > 0)
-		        printf("SECTION_CINT  %d\n", cnt);
+                fprintf(stderr,"SECTION_CINT  %d\n", cnt);
 		    sec->cint_cnt = cnt;
             sec->cint = (int64_t *)(void *)section_data_ptr;
 			//printf("sec->cint: %ld\n", swap_int64( *sec->cint));
@@ -132,7 +136,7 @@ int parse(uint8_t *buf, struct sections *sec)
 
             if(debug_level > 0) {
                 for(int j = 0;j < cnt; j++) {
-                    printf("int[%d]: %" PRId64 "\n",j, swap_int64(sec->cint[j]) );
+                    fprintf(stderr,"int[%d]: %" PRId64 "\n",j, swap_int64(sec->cint[j]) );
                 }
             }
 
@@ -140,13 +144,13 @@ int parse(uint8_t *buf, struct sections *sec)
 			break;
 		  case SECTION_CFLOAT:
 		    if(debug_level > 0)
-		        printf("SECTION_CFLOAT  %d\n", cnt);
+                fprintf(stderr,"SECTION_CFLOAT  %d\n", cnt);
 		    sec->cfloat_cnt = cnt;
 		    sec->cfloat = (double *)(void *)section_data_ptr;
 
             for(int j = 0;j < cnt; j++) {
                 if(debug_level > 0)
-                    printf("float[%d]: %f\n",j, swap(sec->cfloat[j]));
+                    fprintf(stderr,"float[%d]: %f\n",j, swap(sec->cfloat[j]));
             }
 
             //printf("offset: %zd\n", offset);
@@ -155,7 +159,7 @@ int parse(uint8_t *buf, struct sections *sec)
 			break;
 		  case SECTION_CSTR:
 		    if(debug_level > 0)
-		        printf("SECTION_CSTR  %d\n", cnt);
+                fprintf(stderr,"SECTION_CSTR  %d\n", cnt);
             uint32_t* start_of_index = (uint32_t*)(void *)section_data_ptr;
 
             uint32_t* start_of_character_data_32 = start_of_index + cnt + 1; // 1 for HEADER_SIZE of character section
@@ -172,7 +176,7 @@ int parse(uint8_t *buf, struct sections *sec)
 
                    strptr[j] = start_of_character_data_8 + charskip;
                    if(debug_level > 0)
-                        printf("str[%d] (address %p) : %s\n",j, strptr[j] , strptr[j]);
+                       fprintf(stderr,"str[%d] (address %p) : %s\n",j, strptr[j] , strptr[j]);
             }
 
             sec->cstr_cnt = cnt;
@@ -190,7 +194,7 @@ int parse(uint8_t *buf, struct sections *sec)
 
 		  case SECTION_CKEY:
 		    if(debug_level > 0)
-		        printf("SECTION_CKEYR  %d\n", cnt);
+                fprintf(stderr,"SECTION_CKEYR  %d\n", cnt);
             uint32_t* keys_start_of_index = (uint32_t*)(void *)section_data_ptr;
             uint32_t* keys_start_of_character_data_32 = keys_start_of_index + cnt + 1; // 1 for HEADER_SIZE of character section
             uint8_t*  keys_start_of_character_data_8 = (uint8_t*)(void *)keys_start_of_character_data_32;
@@ -206,7 +210,7 @@ int parse(uint8_t *buf, struct sections *sec)
                    keyptr[j] = (char*)(void*)(keys_start_of_character_data_8 + charskip);
 
                    if(debug_level > 0)
-                        printf("key[%d]: %s\n",j, keyptr[j]);
+                       fprintf(stderr,"key[%d]: %s\n",j, keyptr[j]);
             }
             sec->ckey_cnt = cnt;
             sec->ckey     = keyptr;
@@ -224,7 +228,7 @@ int parse(uint8_t *buf, struct sections *sec)
             break;
 		  case SECTION_VTABLES:
 		    if(debug_level > 0)
-                printf("SECTION_VTABLES  %d\n", cnt);
+                fprintf(stderr,"SECTION_VTABLES  %d\n", cnt);
             sec->vtable = NULL;
             sec->vtable_cnt = cnt;
             for(int j = 0;j < cnt; j++) {
@@ -234,7 +238,7 @@ int parse(uint8_t *buf, struct sections *sec)
               uint32_t type_nr = ntohl(*(section_data_ptr + 2));
 
               if(debug_level > 0)
-                    printf("protocol_nr: %d type_nr: %d  jump_offset: %d\n",protocol_nr, type_nr,jump_offset);
+                  fprintf(stderr,"protocol_nr: %d type_nr: %d  jump_offset: %d\n",protocol_nr, type_nr,jump_offset);
 
               uint64_t look_up_pair = (uint64_t) protocol_nr << 32 |  (uint64_t) type_nr;
 
@@ -254,7 +258,7 @@ int parse(uint8_t *buf, struct sections *sec)
 			break;
 		  case SECTION_TYPES:
 		    if(debug_level > 0)
-                printf("SECTION_TYPES  %d\n", cnt);
+                fprintf(stderr,"SECTION_TYPES  %d\n", cnt);
 
             sec->types = NULL;
             sec->types_cnt = cnt;
@@ -262,7 +266,7 @@ int parse(uint8_t *buf, struct sections *sec)
               uint32_t t_id = ntohl(*(section_data_ptr + 1));
               uint32_t type_size = ntohl(*section_data_ptr);
               if(debug_level > 0)
-                    printf("type_id: %d type_size: %d\n", t_id, type_size);
+                  fprintf(stderr,"type_id: %d type_size: %d\n", t_id, type_size);
               struct type_record *record = malloc(sizeof(struct type_record));
               record->type_id = t_id;
               record->type_size = (type_size * 8) + 8;
@@ -272,17 +276,17 @@ int parse(uint8_t *buf, struct sections *sec)
             break;
 		  default:
 		    if(debug_level > 0)
-		        printf("default\n");
+                fprintf(stderr,"default\n");
 			return EINVAL;
 		}
 	}
 
-	if(debug_level > 0) {
-        printf("-----------end of loader ---------------t\n");
+	if(debug_level > 2) {
+        fprintf(stderr,"-----------end of loader ---------------t\n");
         for(int j = 0;j < 2; j++) {
-            printf("float[%d]: %p\n",j, (void *) (sec->cfloat + j) );
+            fprintf(stderr,"float[%d]: %p\n",j, (void *) (sec->cfloat + j) );
         }
-        printf("-----------end of loader ---------------t\n\n");
+        fprintf(stderr,"-----------end of loader ---------------t\n\n");
 	}
 
 	return 0;

@@ -4,27 +4,32 @@
 void print_slot (uint64_t slot) {
 
     if( is_small_int(slot) ) {
-        printf("i%d", get_small_int(slot));
+        fprintf(stderr,"i%d", get_small_int(slot));
         return;
     }
 
     if(is_nil(slot)) {
-        printf("n0");
+        fprintf(stderr,"nil");
         return;
     }
 
     if(is_fnew(slot)) {
-        printf("fn%d", get_fnew(slot));
+        fprintf(stderr,"fn%d", get_fnew(slot));
         return;
     }
 
     if(is_builtin(slot)) {
-        printf("bfn%d", get_builtin(slot));
+        fprintf(stderr,"bfn%d", get_builtin(slot));
+        return;
+    }
+
+    if(is_vfunc(slot)) {
+        fprintf(stderr,"vf%d", get_vfunc(slot));
         return;
     }
 
     if(is_type(slot)) {
-        printf("t%d", get_type(slot));
+        fprintf(stderr,"t%d", get_type(slot));
         return;
     }
 
@@ -38,23 +43,23 @@ void print_slot (uint64_t slot) {
         //printf(" pheader: %016"PRIx64" ", header);
 
         //< mpstype: %02"PRIx64", _: %02"PRIx64" cljtype: %04"PRIx64", size: %08"PRIx64">
-        printf("( [cljtype: %d, size: %d] ", obj->cljtype,obj->size );
+        fprintf(stderr,"( [cljtype: %d, size: %d] ", obj->cljtype,obj->size );
 
         for(int i = 0; i != ((obj->size / 8) - 1); i++) {
             //printf(" <field %i: %016"PRIx64"> ", i,  obj->ref[i] );
             print_slot( (uintptr_t) (void *) obj->ref[i]);
         }
 
-        printf(") ");
+        fprintf(stderr,") ");
         return;
     }
 
     if( is_double(slot) ) {
-        printf("f%.2f", get_double(slot));
+        fprintf(stderr,"f%.2f", get_double(slot));
         return;
     }
 
-    printf("-");
+    fprintf(stderr,"<unkown slot>");
 }
 
 // ------------------------- Print Slots ------------------------
@@ -66,19 +71,19 @@ void print_slots(Slots* s, uint64_t base) {
     while (1) {
 
         if(base == index)
-            printf("| ");
+            fprintf(stderr,"| ");
 
         if ( !(index >= s->size || index < 0) ) {
             //printf("<%d:",index);
             print_slot(slots_get(s, index));
 
-            printf(" ");
+            fprintf(stderr," ");
         }
 
         index++;
 
         if(index == s->size) {
-            printf("\n");
+            fprintf(stderr,"\n");
             return;
         }
     }

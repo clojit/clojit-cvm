@@ -4,7 +4,7 @@ MPS_URL=http://www.ravenbrook.com/project/mps/release/$(MPS_VER)/$(MPS_KIT).tar.
 
 SANFLAGS=-fsanitize=undefined -fsanitize=address
 
-CFLAGS+=-g -O2 -std=c11
+CFLAGS+=-g -O2 -fno-strict-aliasing -std=c11
 CFLAGS+=-I$(MPS_KIT)/code
 CFLAGS+=-pedantic  -Wshadow -Wpointer-arith -Wcast-qual \
         -Wstrict-prototypes -Wmissing-prototypes

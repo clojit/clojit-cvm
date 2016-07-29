@@ -65,8 +65,8 @@
 struct OpABC {
     uint8_t op;
     uint8_t a;
-    uint8_t b;
     uint8_t c;
+    uint8_t b;
 } __attribute__((packed));
 
 struct OpAD {

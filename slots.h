@@ -47,6 +47,7 @@ void slots_init(Slots *slots, mps_arena_t arena);
 void slots_append(Slots *slots, uint64_t value);
 
 uint64_t slots_get(Slots *slots, uint32_t index);
+uint64_t* slots_get_ptr(Slots *slots, uint32_t index);
 
 void slots_set(Slots *slots, uint32_t index, uint64_t value);
 
@@ -72,6 +73,10 @@ uint16_t get_type(uint64_t slot);
 uint64_t to_builtin(builtin_fn fn);
 bool is_builtin(uint64_t slot);
 builtin_fn get_builtin(uint64_t slot);
+// ---------------- VFUNC Function  ----------------
+uint64_t to_vfunc(int16_t type);
+bool is_vfunc(uint64_t slot);
+int16_t get_vfunc(uint64_t slot);
 // ---------------- FNEW Function  ----------------
 uint64_t to_fnew(int16_t type);
 bool is_fnew(uint64_t slot);

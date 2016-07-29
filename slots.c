@@ -17,7 +17,7 @@ const uint16_t TAG_BOOL          = 0xFFFD;
 const uint16_t TAG_TYPE          = 0xFFFC;
 const uint16_t TAG_FNEW          = 0xFFFB;
 const uint16_t TAG_BUILTIN       = 0xFFFA;
-
+const uint16_t TAG_VFUNC         = 0xFFF9;
 
 void slots_init(Slots *slots, mps_arena_t arena) {
     // initialize size and capacity
@@ -38,7 +38,7 @@ void slots_init(Slots *slots, mps_arena_t arena) {
 
     slots->root_o = root_o;
 
-    if (res != MPS_RES_OK) printf("Couldn't create slots roots");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create slots roots");
 
     // allocate memory for slots->data
 
@@ -51,17 +51,25 @@ void slots_append(Slots *slots, uint64_t value) {
 
 uint64_t slots_get(Slots *slots, uint32_t index) {
 
+    return * slots_get_ptr(slots, index);
+
+}
+uint64_t* slots_get_ptr(Slots *slots, uint32_t index) {
+
     if(slots->capacity != SLOTS_INITIAL_CAPACITY && ((uint32_t)(slots->capacity / 2) * 0.6) >= slots->size) {
         slots_half_capacity(slots);
     }
 
     if (index >= slots->size || index < 0) {
-        printf("Index %d out of bounds for slots of size %d\n", index, slots->size);
+        fprintf(stderr,"Index %d out of bounds for slots of size %d\n", index, slots->size);
         exit(1);
     }
 
-    return slots->data[index];
+    return &(slots->data[index]);
 }
+
+
+
 
 
 void slots_set(Slots *slots, uint32_t index, uint64_t value) {
@@ -100,7 +108,7 @@ void slots_half_capacity(Slots *slots) {
                                                  (mps_addr_t *)data,
                                                  slots->capacity,
                                                  (mps_word_t)TAG_MASK);
-    if (res != MPS_RES_OK) printf("Couldn't create root for increased slots\n");
+    if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create root for increased slots\n");
 
     for(int i = 0; i != slots->size; i++) {
         data[i] = slots->data[i];
@@ -134,7 +142,7 @@ void slots_double_capacity_if_full(Slots *slots) {
                                                      (mps_addr_t *)data,
                                                      slots->capacity,
                                                      (mps_word_t)TAG_MASK);
-        if (res != MPS_RES_OK) printf("Couldn't create root for decreased slots\n");
+        if (res != MPS_RES_OK) fprintf(stderr,"Couldn't create root for decreased slots\n");
 
 
         for(int i = 0; i != slots->size; i++) {
@@ -183,7 +191,7 @@ double get_double(uint64_t slot) {
         bits.raw = invert_non_negative(slot);
         return *((double *)(void*) bits.ptr);
     } else {
-        printf("get_double called with nondouble\n");
+        fprintf(stderr,"get_double called with nondouble\n");
         return 0.0;
     }
 }
@@ -220,6 +228,19 @@ builtin_fn get_builtin(uint64_t slot) {
     return  (builtin_fn) (void *) (slot & 0xFFFFFFFF);
 }
 
+// ---------------- VFUNC Function  ----------------
+uint64_t to_vfunc(int16_t type) {
+    uint64_t int0 = ((uint64_t) TAG_VFUNC) << 48;
+    uint64_t result = int0 | type;
+    return result;
+}
+bool is_vfunc(uint64_t slot) {
+    uint16_t t = tag(slot);
+    return t == TAG_VFUNC;
+}
+int16_t get_vfunc(uint64_t slot) {
+    return (slot & 0xFFFFFFFF);
+}
 // ---------------- FNEW Function  ----------------
 uint64_t to_fnew(int16_t type) {
     uint64_t int0 = ((uint64_t) TAG_FNEW) << 48;
@@ -268,7 +289,7 @@ uint64_t to_bool(bool value) {
 }
 // ---------------- Truthy/Falsy Function ----------------
 bool is_falsy(uint64_t slot) {
-    printf("is_truthy \n");
+    fprintf(stderr,"is_truthy \n");
     if(is_bool(slot))
         return  get_bool(slot) == 0;
     if(is_nil(slot))
@@ -277,6 +298,6 @@ bool is_falsy(uint64_t slot) {
         return false;
 }
 bool is_truthy(uint64_t slot) {
-    printf("is_truthy \n");
+    fprintf(stderr,"is_truthy \n");
     return !is_falsy(slot);
 }

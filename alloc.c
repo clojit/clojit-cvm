@@ -7,8 +7,10 @@ mps_res_t mps_alloc_obj(mps_addr_t *addr_o,
                         uint32_t size,
                         uint16_t cljtype,
                         uint8_t mpstype) {
+
     assert(addr_o != NULL);
     assert(size > HEADER_SIZE);
+
     mps_res_t res;
 
     do {
