@@ -92,7 +92,7 @@ BYTECODE
 008      :CTYPE     3              0
 009      :ALLOC     3              3
 010        :MOV     4              2
-011   :SETFIELD     3      0       4
+011   :INITFIELD     3      0       4
 012        :RET     3               
 ------------------
 

@@ -20,4 +20,4 @@
     INoArg
     (stuff [self] 888.88))
 
-  (total (->Bar 1)))
+  (println (total (->Bar 1))))

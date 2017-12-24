@@ -61,6 +61,9 @@
 #define EXIT 47
 #define DROP 48
 #define TRANC 49
+#define LOOKUPFIELD 50
+#define ASSIGNFIELD 51
+
 
 struct OpABC {
     uint8_t op;

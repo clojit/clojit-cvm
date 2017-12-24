@@ -567,7 +567,6 @@ int start(char *file) {
                 if(debug_level > 0)
                     fprintf(stderr,"SETFIELD: %d %d %d\n",abc.a, abc.b, abc.c);
 
-
                 int offset = abc.b;
                 int var_index = abc.c;
                 int ref_index = abc.a;

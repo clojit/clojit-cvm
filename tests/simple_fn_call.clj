@@ -1,5 +1,5 @@
-(do
+(println (do
   (def a "abc")
 
  ((fn [a] 
-   (+ a 10)) 5))
+   (+ a 10)) 5)))
